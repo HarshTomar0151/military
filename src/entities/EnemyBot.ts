@@ -254,12 +254,14 @@ export class EnemyBot extends Player {
     // ---- reload / switch / grenade
     if (!this.visible && w.ammo < def.mag * 0.4 && !w.reloading) c.reload = true;
     if (w.empty && !this.weapons[1 - this.slot].empty) c.switchWeapon = true;
-    if (t && this.visible && this.grenades > 0 && this.grenadeCd <= 0 && dist > 220 && dist < 700) {
+    if (t && this.visible && this.totalNades > 0 && this.grenadeCd <= 0 && dist > 220 && dist < 700) {
       this.grenadeCd = 6 + Math.random() * 6;
       if (Math.random() < sk.grenade) {
         const lob = desired + (Math.cos(desired) >= 0 ? -0.38 : 0.38);
         c.aim = lob;
         this.aimAngle = lob;
+        const stocked = (['frag', 'gas', 'poison'] as const).filter((k) => this.nades[k] > 0);
+        this.nadeSel = stocked[Math.floor(Math.random() * stocked.length)];
         c.grenade = true;
       }
     }

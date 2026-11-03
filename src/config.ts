@@ -46,7 +46,7 @@ export const PHYS = {
   jetAccel: 2800,
   jetMaxRise: -360,
   jetFuelMax: 100,
-  jetDrain: 30,
+  jetDrain: 0, // jetpack fuel is unlimited
   jetRegenGround: 48,
   jetRegenAir: 14,
   jetRegenDelay: 0.55,
@@ -57,3 +57,5 @@ export const PHYS = {
 };
 
 export const CAMERA_ZOOM = 0.86;
+/** Phones get a closer camera so characters and bullets are bigger on a small screen. */
+export const CAMERA_ZOOM_TOUCH = 1.12;

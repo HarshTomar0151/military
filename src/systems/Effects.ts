@@ -106,6 +106,19 @@ export class Effects {
     if (Math.random() < 0.25 * this.density) this.smoke(x, y + 6, 4);
   }
 
+  /** One frame worth of drifting cloud particles inside a circle. */
+  gasPuff(x: number, y: number, radius: number, color: number): void {
+    const n = this.density > 0.9 ? 2 : Math.random() < 0.6 ? 1 : 0;
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const d = Math.sqrt(Math.random()) * radius * 0.9;
+      this.emit({
+        x: x + Math.cos(a) * d, y: y + Math.sin(a) * d * 0.8, vx: (Math.random() - 0.5) * 24, vy: -8 - Math.random() * 22,
+        life: 1 + Math.random() * 0.6, size: 12 + Math.random() * 16, color, grow: 0.7, alpha: 0.26,
+      });
+    }
+  }
+
   puff(x: number, y: number): void {
     this.burst(x, y, 6, 110, 0xc8c0a8, { life: 0.4, size: 4, angle: -Math.PI / 2, spread: Math.PI, grav: -40 });
   }

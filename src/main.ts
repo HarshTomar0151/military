@@ -15,7 +15,7 @@ import { PracticeScene } from './scenes/PracticeScene';
 import { ResultsScene } from './scenes/ResultsScene';
 import { SettingsScene } from './scenes/SettingsScene';
 import { audio } from './systems/AudioManager';
-import { installAutoFullscreen } from './systems/Fullscreen';
+import { installAutoFullscreen, isTouchDevice } from './systems/Fullscreen';
 import { net } from './systems/MultiplayerManager';
 
 // Render every Text object at 2x for crisp typography on high-DPI screens.
@@ -34,7 +34,7 @@ const game = new Phaser.Game({
   height: GAME_H,
   backgroundColor: COLORS.bg,
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-  physics: { default: 'arcade', arcade: { gravity: { x: 0, y: PHYS.gravity }, fps: 120, debug: false } },
+  physics: { default: 'arcade', arcade: { gravity: { x: 0, y: PHYS.gravity }, fps: isTouchDevice() ? 60 : 120, debug: false } },
   input: { activePointers: 4, windowEvents: true },
   render: { antialias: true, powerPreference: 'high-performance' },
   disableContextMenu: true,

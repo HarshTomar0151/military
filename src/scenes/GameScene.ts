@@ -10,16 +10,16 @@ import {
   type MapId,
   type StartPayload,
 } from '../../shared/protocol';
-import { CAMERA_ZOOM, FONT_UI, PHYS } from '../config';
+import { CAMERA_ZOOM, CAMERA_ZOOM_TOUCH, FONT_UI, PHYS } from '../config';
 import { ARMOR_COLORS, DEFAULT_APPEARANCE } from '../data/palettes';
 import { MAPS, type MapDef } from '../data/maps';
-import { WEAPONS, isWeaponId, type WeaponId } from '../data/weapons';
+import { NADES, WEAPONS, isNadeKind, isWeaponId, type NadeKind, type WeaponId } from '../data/weapons';
 import { BOT_NAMES, EnemyBot } from '../entities/EnemyBot';
 import { emptyControls, Player, type PlayerContext, type PlayerKind } from '../entities/Player';
 import type { Bullet } from '../entities/Bullet';
 import { audio } from '../systems/AudioManager';
 import { distToRect, lineOfSight } from '../systems/Collision';
-import { CombatSystem, type ExplosionSpec } from '../systems/CombatSystem';
+import { CombatSystem, type ExplosionSpec, type GasCloud } from '../systems/CombatSystem';
 import { Effects } from '../systems/Effects';
 import { InputManager } from '../systems/InputManager';
 import { MapRenderer } from '../systems/MapRenderer';
@@ -80,6 +80,9 @@ export class GameScene extends Phaser.Scene {
   private lastDeathBy = '';
   private fpsText?: Phaser.GameObjects.Text;
   private offHandlers: (() => void)[] = [];
+  private poison = new Map<string, { until: number; next: number; owner: string; dps: number }>();
+  private dotsCache: HudState['dots'] = [];
+  private dotsAt = -1000;
 
   constructor() {
     super('Game');
@@ -125,6 +128,8 @@ export class GameScene extends Phaser.Scene {
       friendly: (oid, ot, target) => this.teamPlay && ot >= 0 && ot === target.team && target.id !== oid,
       playerHit: (b, v, x, y, head) => this.onBulletHit(b, v, x, y, head),
       explode: (...a) => this.onExplode(...a),
+      cloudStart: (c) => this.onCloudStart(c),
+      cloudTick: (c, p) => this.onCloudTick(c, p),
     });
     this.pickups = new PickupSystem(this, this.map.pickups);
     this.inputMgr = new InputManager(this);
@@ -134,7 +139,7 @@ export class GameScene extends Phaser.Scene {
 
     const cam = this.cameras.main;
     cam.setBounds(0, 0, this.map.w, this.map.h);
-    cam.setZoom(CAMERA_ZOOM);
+    cam.setZoom(this.inputMgr.usingTouch ? CAMERA_ZOOM_TOUCH : CAMERA_ZOOM);
     cam.startFollow(this.local.sprite, true, 0.12, 0.12);
     cam.fadeIn(400, 0, 0, 0);
 
@@ -161,9 +166,9 @@ export class GameScene extends Phaser.Scene {
         net.sendFire({ w: def.id, x: sx, y: sy, a: aim });
       }
     },
-    throwGrenade: (p, x, y, vx, vy) => {
-      this.combat.spawnGrenade(p, x, y, vx, vy, p.kind !== 'remote');
-      if (p.kind === 'local' && this.cfg.online) net.sendGrenade({ x, y, vx, vy });
+    throwGrenade: (p, kind, x, y, vx, vy) => {
+      this.combat.spawnGrenade(p, kind, x, y, vx, vy, p.kind !== 'remote');
+      if (p.kind === 'local' && this.cfg.online) net.sendGrenade({ x, y, vx, vy, k: kind });
     },
     sfx: (name, x, y, vol = 1) => {
       const c = this.cameras.main;
@@ -268,6 +273,7 @@ export class GameScene extends Phaser.Scene {
     this.fx.update(dt);
     this.pickups.update(this.gt);
     this.collectPickups();
+    this.updatePoison();
     audio.jet(this.local.alive && this.local.jetting);
 
     // offline respawns
@@ -398,7 +404,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     const died = victim.takeDamage(dmg, this.gt);
-    this.damageFeedback(attacker, victim, dmg, head, ox, oy);
+    this.damageFeedback(attacker, victim, dmg, head, ox, oy, weaponId);
     if (attacker?.kind === 'local' && victim !== attacker) this.hitFeedback(head);
     if (died) this.killPlayer(attacker?.id ?? victim.id, victim, weaponId, head);
   }
@@ -408,7 +414,7 @@ export class GameScene extends Phaser.Scene {
     audio.play(head ? 'headshot' : 'hit', 0.9);
   }
 
-  private damageFeedback(attacker: Player | undefined, victim: Player, dmg: number, head: boolean, ox: number, oy: number): void {
+  private damageFeedback(attacker: Player | undefined, victim: Player, dmg: number, head: boolean, ox: number, oy: number, w = ''): void {
     victim.view.flashHit();
     this.fx.hurt(victim.x, victim.y - 6, Math.atan2(victim.y - oy, victim.x - ox));
     if (store.settings.dmgNumbers && (attacker?.kind === 'local' || victim.kind === 'local')) {
@@ -416,7 +422,7 @@ export class GameScene extends Phaser.Scene {
       const t = this.add
         .text(victim.x + Phaser.Math.Between(-10, 10), victim.y - 36, String(dmg), {
           fontFamily: FONT_UI, fontSize: head ? '26px' : '20px', fontStyle: '700',
-          color: mine ? '#ff5a4a' : head ? '#ffe04a' : '#ffffff',
+          color: w === 'gas' ? '#b6ff3a' : w === 'poison' ? '#c98cff' : mine ? '#ff5a4a' : head ? '#ffe04a' : '#ffffff',
         })
         .setOrigin(0.5)
         .setStroke('#000000', 4)
@@ -440,6 +446,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private deathVisuals(killerId: string, victim: Player, weaponId: string, head: boolean): void {
+    this.poison.delete(victim.id);
     const killer = this.byId(killerId);
     const color = victim.team >= 0 ? (victim.team === 0 ? 0x35a7ff : 0xff5a3c) : ARMOR_COLORS[victim.appearance.armor % ARMOR_COLORS.length];
     this.fx.debris(victim.x, victim.y, color);
@@ -483,15 +490,15 @@ export class GameScene extends Phaser.Scene {
       const p = this.byId(f.id);
       if (p && p.alive && isWeaponId(f.w)) p.remoteShot(WEAPONS[f.w], f.x, f.y, f.a);
     });
-    on<{ id: string; x: number; y: number; vx: number; vy: number }>('grenade', (g) => {
+    on<{ id: string; x: number; y: number; vx: number; vy: number; k?: string }>('grenade', (g) => {
       const p = this.byId(g.id);
-      if (p) this.combat.spawnGrenade(p, g.x, g.y, g.vx, g.vy, false);
+      if (p) this.combat.spawnGrenade(p, isNadeKind(g.k) ? g.k : 'frag', g.x, g.y, g.vx, g.vy, false);
     });
     on<DamagePayload>('damage', (d) => {
       const v = this.byId(d.t);
       if (!v || !v.alive) return;
       v.setVitals(d.hp, d.armor);
-      this.damageFeedback(this.byId(d.a), v, d.d, d.hs, d.ox, d.oy);
+      this.damageFeedback(this.byId(d.a), v, d.d, d.hs, d.ox, d.oy, d.w);
     });
     on<{ id: string; hp: number; armor: number }>('vitals', (d) => this.byId(d.id)?.setVitals(d.hp, d.armor));
     on<DeathPayload>('death', (d) => {
@@ -543,6 +550,54 @@ export class GameScene extends Phaser.Scene {
     this.events.emit('paused', p);
   }
 
+  /** Minimap dots, refreshed 10x/s to avoid per-frame allocations on phones. */
+  private minimapDots(): HudState['dots'] {
+    if (this.gt - this.dotsAt > 100) {
+      this.dotsAt = this.gt;
+      this.dotsCache = this.players.filter((p) => p.alive).map((p) => ({ x: p.x, y: p.y, team: p.team, me: p === this.local }));
+    }
+    return this.dotsCache;
+  }
+
+  private onCloudStart(c: GasCloud): void {
+    const def = NADES[c.kind];
+    this.ctx.sfx('gas', c.x, c.y, 1);
+    this.fx.burst(c.x, c.y, 18, 140, def.color, { life: 0.7, size: 9, drag: 2 });
+  }
+
+  /** Called every 0.5s for each player standing in a gas / poison cloud. */
+  private onCloudTick(c: GasCloud, p: Player): void {
+    const def = NADES[c.kind].cloud!;
+    if (p.simulated) {
+      p.slowUntil = this.gt + 700;
+      p.slowMult = def.slow;
+    }
+    if (!c.dealsDamage) return;
+    if (p.id !== c.ownerId && this.teamPlay && c.ownerTeam >= 0 && p.team === c.ownerTeam) return;
+    const self = p.id === c.ownerId ? 0.5 : 1;
+    if (def.dmgPerTick > 0) this.dealDamage(this.byId(c.ownerId), p, def.dmgPerTick * self, 'gas', false);
+    if (def.poison) {
+      if (!this.poison.has(p.id) && p.kind === 'local') this.events.emit('message', 'POISONED!', '#c98cff', 900, 'small');
+      this.poison.set(p.id, { until: this.gt + def.poison.ms, next: this.gt + 500, owner: c.ownerId, dps: def.poison.dps * self });
+    }
+  }
+
+  /** Lingering poison damage; only the thrower's client applies it (same rule as every other hit). */
+  private updatePoison(): void {
+    for (const [id, st] of this.poison) {
+      const v = this.byId(id);
+      if (!v || !v.alive || this.gt > st.until) {
+        this.poison.delete(id);
+        continue;
+      }
+      if (Math.random() < 0.35) this.fx.burst(v.x, v.y - 8, 1, 25, 0xb35cff, { life: 0.5, add: true, size: 3 });
+      if (this.gt >= st.next) {
+        st.next += 500;
+        this.dealDamage(this.byId(st.owner), v, st.dps * 0.5, 'poison', false);
+      }
+    }
+  }
+
   hudState(): HudState {
     const l = this.local;
     const w = l.weapon;
@@ -551,14 +606,14 @@ export class GameScene extends Phaser.Scene {
     return {
       hp: l.hp, armor: l.armor, fuel: l.fuel, alive: l.alive,
       weaponId: w.def.id, weaponName: w.def.name, ammo: w.ammo, reserve: w.reserve,
-      reload: w.reloadProgress(this.gt), otherId: other.def.id, grenades: l.grenades,
+      reload: w.reloadProgress(this.gt), otherId: other.def.id, nades: l.nades, nadeSel: l.nadeSel,
       kills: st?.kills ?? 0, deaths: st?.deaths ?? 0,
       timeLeft: this.match.remaining(this.gt),
       teamScores: this.match.teamScores, scoreLimit: this.match.scoreLimit, teamPlay: this.teamPlay, myTeam: l.team,
       leader: this.match.leaderboard()[0]?.kills ?? 0,
       crosshair: this.inputMgr.crosshair, touch: this.inputMgr.usingTouch,
       frozen: this.gt < this.goAt,
-      dots: this.players.filter((p) => p.alive).map((p) => ({ x: p.x, y: p.y, team: p.team, me: p === l })),
+      dots: this.minimapDots(),
     };
   }
 
@@ -631,7 +686,7 @@ export class GameScene extends Phaser.Scene {
 
 export interface HudState {
   hp: number; armor: number; fuel: number; alive: boolean;
-  weaponId: WeaponId; weaponName: string; ammo: number; reserve: number; reload: number; otherId: WeaponId; grenades: number;
+  weaponId: WeaponId; weaponName: string; ammo: number; reserve: number; reload: number; otherId: WeaponId; nades: Record<NadeKind, number>; nadeSel: NadeKind;
   kills: number; deaths: number; timeLeft: number;
   teamScores: [number, number]; scoreLimit: number; teamPlay: boolean; myTeam: number; leader: number;
   crosshair: { x: number; y: number }; touch: boolean; frozen: boolean;

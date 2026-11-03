@@ -1,4 +1,4 @@
-import { GRENADE } from '../data/weapons';
+import { NADES, type NadeKind } from '../data/weapons';
 import { overlaps, type Rect } from '../systems/Collision';
 
 const HALF = 6;
@@ -6,7 +6,7 @@ const GRAVITY = 1250;
 
 export class Grenade {
   alive = true;
-  fuse = GRENADE.fuseMs / 1000;
+  fuse: number;
   spin = 0;
 
   constructor(
@@ -17,7 +17,10 @@ export class Grenade {
     readonly ownerId: string,
     readonly ownerTeam: number,
     readonly dealsDamage: boolean,
-  ) {}
+    readonly kind: NadeKind = 'frag',
+  ) {
+    this.fuse = NADES[kind].fuseMs / 1000;
+  }
 
   /** Returns true when the fuse runs out this frame. */
   update(dt: number, solids: Rect[]): boolean {

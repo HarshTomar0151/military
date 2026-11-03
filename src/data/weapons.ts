@@ -126,6 +126,41 @@ export const GRENADE = {
   cooldownMs: 800,
 };
 
+export type NadeKind = 'frag' | 'gas' | 'poison';
+export const NADE_ORDER: NadeKind[] = ['frag', 'gas', 'poison'];
+
+export interface NadeDef {
+  name: string;
+  color: number; // body / cloud colour
+  fuseMs: number;
+  start: number; // carried at spawn
+  max: number;
+  cloud?: {
+    radius: number;
+    lifeS: number;
+    tickS: number;
+    dmgPerTick: number; // direct damage while inside
+    poison?: { dps: number; ms: number }; // lingering damage after being touched
+    slow: number; // run-speed multiplier while inside
+  };
+}
+
+export const NADES: Record<NadeKind, NadeDef> = {
+  frag: { name: 'FRAG', color: 0x5f8a3e, fuseMs: GRENADE.fuseMs, start: GRENADE.count, max: GRENADE.count + 2 },
+  gas: {
+    name: 'GAS', color: 0xb6ff3a, fuseMs: 1500, start: 2, max: 4,
+    cloud: { radius: 160, lifeS: 7, tickS: 0.5, dmgPerTick: 7, slow: 0.55 },
+  },
+  poison: {
+    name: 'POISON', color: 0xb35cff, fuseMs: 1500, start: 2, max: 4,
+    cloud: { radius: 135, lifeS: 5.5, tickS: 0.5, dmgPerTick: 0, poison: { dps: 10, ms: 6000 }, slow: 0.75 },
+  },
+};
+
+export function isNadeKind(k: unknown): k is NadeKind {
+  return k === 'frag' || k === 'gas' || k === 'poison';
+}
+
 export function isWeaponId(id: string): id is WeaponId {
   return id in WEAPONS;
 }

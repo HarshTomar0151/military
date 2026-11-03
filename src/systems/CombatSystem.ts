@@ -3,8 +3,8 @@ import { DEPTH } from '../config';
 import { Bullet, type ProjectileHost } from '../entities/Bullet';
 import { Grenade } from '../entities/Grenade';
 import type { Player } from '../entities/Player';
-import { GRENADE, type WeaponDef } from '../data/weapons';
-import type { Rect } from './Collision';
+import { GRENADE, NADES, type NadeKind, type WeaponDef } from '../data/weapons';
+import { lineOfSight, type Rect } from './Collision';
 import type { Effects } from './Effects';
 
 export interface ExplosionSpec {
@@ -13,19 +13,41 @@ export interface ExplosionSpec {
   knock: number;
 }
 
+export interface GasCloud {
+  x: number;
+  y: number;
+  kind: Exclude<NadeKind, 'frag'>;
+  age: number;
+  life: number;
+  tick: number;
+  ownerId: string;
+  ownerTeam: number;
+  dealsDamage: boolean;
+}
+
 export interface CombatCallbacks {
   now(): number;
   players(): Player[];
   friendly(ownerId: string, ownerTeam: number, target: Player): boolean;
   playerHit(b: Bullet, victim: Player, x: number, y: number, head: boolean): void;
   explode(ownerId: string, ownerTeam: number, x: number, y: number, spec: ExplosionSpec, weaponId: string, dealsDamage: boolean): void;
+  cloudStart(c: GasCloud): void;
+  cloudTick(c: GasCloud, p: Player): void;
 }
 
-/** Owns every live bullet / rocket / grenade: simulation, collision hand-off and rendering. */
+/** Cloud radius grows quickly after the canister pops. */
+export function cloudRadius(c: GasCloud): number {
+  const full = NADES[c.kind].cloud!.radius;
+  return full * Math.min(1, 0.3 + c.age / 0.9);
+}
+
+/** Owns every live bullet / rocket / grenade / gas cloud: simulation, collision hand-off and rendering. */
 export class CombatSystem implements ProjectileHost {
   readonly bullets: Bullet[] = [];
   readonly grenades: Grenade[] = [];
+  readonly clouds: GasCloud[] = [];
   private g: Phaser.GameObjects.Graphics;
+  private cloudG: Phaser.GameObjects.Graphics;
 
   constructor(
     scene: Phaser.Scene,
@@ -33,6 +55,7 @@ export class CombatSystem implements ProjectileHost {
     private fx: Effects,
     private cb: CombatCallbacks,
   ) {
+    this.cloudG = scene.add.graphics().setDepth(DEPTH.projectiles - 1);
     this.g = scene.add.graphics().setDepth(DEPTH.projectiles);
   }
 
@@ -69,13 +92,14 @@ export class CombatSystem implements ProjectileHost {
     if (b.alive) this.bullets.push(b);
   }
 
-  spawnGrenade(owner: Player, x: number, y: number, vx: number, vy: number, dealsDamage: boolean): void {
-    this.grenades.push(new Grenade(x, y, vx, vy, owner.id, owner.team, dealsDamage));
+  spawnGrenade(owner: Player, kind: NadeKind, x: number, y: number, vx: number, vy: number, dealsDamage: boolean): void {
+    this.grenades.push(new Grenade(x, y, vx, vy, owner.id, owner.team, dealsDamage, kind));
   }
 
   clear(): void {
     this.bullets.length = 0;
     this.grenades.length = 0;
+    this.clouds.length = 0;
   }
 
   // update / draw -------------------------------------------------------------
@@ -92,14 +116,61 @@ export class CombatSystem implements ProjectileHost {
     for (let i = this.grenades.length - 1; i >= 0; i--) {
       const gr = this.grenades[i];
       if (gr.update(dt, this.solids)) {
-        this.cb.explode(gr.ownerId, gr.ownerTeam, gr.x, gr.y - 2, GRENADE, 'grenade', gr.dealsDamage);
         this.grenades.splice(i, 1);
+        if (gr.kind === 'frag') {
+          this.cb.explode(gr.ownerId, gr.ownerTeam, gr.x, gr.y - 2, GRENADE, 'grenade', gr.dealsDamage);
+        } else {
+          const c: GasCloud = {
+            x: gr.x, y: gr.y - 4, kind: gr.kind, age: 0, life: NADES[gr.kind].cloud!.lifeS, tick: 0.15,
+            ownerId: gr.ownerId, ownerTeam: gr.ownerTeam, dealsDamage: gr.dealsDamage,
+          };
+          this.clouds.push(c);
+          this.cb.cloudStart(c);
+        }
       }
     }
+    this.updateClouds(dt);
     this.draw();
   }
 
+  private updateClouds(dt: number): void {
+    const now = this.cb.now();
+    for (let i = this.clouds.length - 1; i >= 0; i--) {
+      const c = this.clouds[i];
+      c.age += dt;
+      c.life -= dt;
+      if (c.life <= 0) {
+        this.clouds.splice(i, 1);
+        continue;
+      }
+      const def = NADES[c.kind];
+      const r = cloudRadius(c);
+      this.fx.gasPuff(c.x, c.y, r, def.color);
+      c.tick -= dt;
+      if (c.tick > 0) continue;
+      c.tick += def.cloud!.tickS;
+      for (const p of this.cb.players()) {
+        if (!p.alive || p.isProtected(now)) continue;
+        const dx = p.x - c.x;
+        const dy = p.y - c.y;
+        if (dx * dx + dy * dy > (r + 14) * (r + 14)) continue;
+        if (!lineOfSight(c.x, c.y, p.x, p.y, this.solids)) continue;
+        this.cb.cloudTick(c, p);
+      }
+    }
+  }
+
   private draw(): void {
+    const cg = this.cloudG;
+    cg.clear();
+    for (const c of this.clouds) {
+      const def = NADES[c.kind];
+      const r = cloudRadius(c);
+      const fade = Math.min(1, c.life / 1.2);
+      cg.fillStyle(def.color, 0.07 * fade).fillCircle(c.x, c.y, r);
+      cg.lineStyle(2, def.color, 0.25 * fade).strokeCircle(c.x, c.y, r);
+    }
+
     const g = this.g;
     g.clear();
     for (const b of this.bullets) {
@@ -135,12 +206,14 @@ export class CombatSystem implements ProjectileHost {
       g.lineStyle(b.def.size * 0.45, 0xffffff, 1).lineBetween(b.x - dx * len * 0.35, b.y - dy * len * 0.35, b.x, b.y);
     }
     for (const gr of this.grenades) {
+      const def = NADES[gr.kind];
       g.fillStyle(0x000000, 0.3).fillCircle(gr.x + 1, gr.y + 2, 7);
-      g.fillStyle(0x3d5a2a, 1).fillCircle(gr.x, gr.y, 6.5);
-      g.fillStyle(0x5f8a3e, 1).fillCircle(gr.x - 2, gr.y - 2, 2.5);
+      g.fillStyle(def.color, 1).fillCircle(gr.x, gr.y, 6.5);
+      g.fillStyle(0xffffff, 0.35).fillCircle(gr.x - 2, gr.y - 2, 2.5);
       g.fillStyle(0x202820, 1).fillRect(gr.x - 2.5, gr.y - 9, 5, 4);
+      if (gr.kind !== 'frag') g.lineStyle(2, 0x101010, 0.7).strokeCircle(gr.x, gr.y, 3.5);
       const blink = Math.floor(gr.fuse * (gr.fuse < 0.8 ? 14 : 6)) % 2 === 0;
-      if (blink) g.fillStyle(0xff3b3b, 1).fillCircle(gr.x + 2, gr.y + 1, 2);
+      if (blink) g.fillStyle(gr.kind === 'frag' ? 0xff3b3b : 0xffffff, 1).fillCircle(gr.x + 2, gr.y + 1, 2);
     }
   }
 }

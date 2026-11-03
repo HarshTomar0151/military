@@ -205,7 +205,7 @@ export class CustomizeScene extends Phaser.Scene {
     };
     slot('PRIMARY WEAPON', 192, 'primary', 'secondary');
     slot('SECONDARY WEAPON', 368, 'secondary', 'primary');
-    ui(this, 90, 556, 'Hover a weapon to inspect it · click to equip · [Q] swaps primary/secondary in match · [G] grenade', 14, COLORS.textDim, { width: 640 });
+    ui(this, 90, 556, 'Hover a weapon to inspect it · click to equip · [Q] swaps primary/secondary in match · [G] grenade · [E] grenade type', 14, COLORS.textDim, { width: 640 });
     showDetail(store.data.primary as WeaponId);
   }
 }

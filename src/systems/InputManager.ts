@@ -16,12 +16,13 @@ export const touchState = {
   switchWeapon: false,
   reload: false,
   grenade: false,
+  cycleNade: false,
 };
 
 /** Merges keyboard, mouse and touch into one Controls object for the local player. */
 export class InputManager {
   private keys: Record<string, Phaser.Input.Keyboard.Key> = {};
-  private pending = { reload: false, switchWeapon: false, grenade: false };
+  private pending = { reload: false, switchWeapon: false, grenade: false, cycleNade: false };
   private lastAim = 0;
   private touch: boolean;
   /** Where the crosshair should be drawn on the screen (game coords). */
@@ -34,12 +35,13 @@ export class InputManager {
       const k = Phaser.Input.Keyboard.KeyCodes;
       this.keys = kb.addKeys({
         left: k.A, right: k.D, left2: k.LEFT, right2: k.RIGHT, up: k.W, up2: k.UP,
-        jump: k.SPACE, jet: k.SHIFT, reload: k.R, switchW: k.Q, grenade: k.G, s1: k.ONE, s2: k.TWO,
+        jump: k.SPACE, jet: k.SHIFT, reload: k.R, switchW: k.Q, grenade: k.G, nadeType: k.E, s1: k.ONE, s2: k.TWO,
       }) as Record<string, Phaser.Input.Keyboard.Key>;
       kb.addCapture('SPACE,UP,DOWN,LEFT,RIGHT,TAB');
       this.keys.reload.on('down', () => (this.pending.reload = true));
       this.keys.switchW.on('down', () => (this.pending.switchWeapon = true));
       this.keys.grenade.on('down', () => (this.pending.grenade = true));
+      this.keys.nadeType.on('down', () => (this.pending.cycleNade = true));
     }
     scene.input.mouse?.disableContextMenu();
     scene.input.addPointer(3);
@@ -68,7 +70,8 @@ export class InputManager {
       c.reload = this.pending.reload || t.reload;
       c.switchWeapon = this.pending.switchWeapon || t.switchWeapon;
       c.grenade = this.pending.grenade || t.grenade;
-      t.reload = t.switchWeapon = t.grenade = false;
+      c.cycleNade = this.pending.cycleNade || t.cycleNade;
+      t.reload = t.switchWeapon = t.grenade = t.cycleNade = false;
       const sx = (shoulderX - cam.worldView.x) * cam.zoom;
       const sy = (shoulderY - cam.worldView.y) * cam.zoom;
       this.crosshair = { x: sx + Math.cos(c.aim) * 170, y: sy + Math.sin(c.aim) * 170 };
@@ -86,9 +89,10 @@ export class InputManager {
       c.reload = this.pending.reload;
       c.switchWeapon = this.pending.switchWeapon;
       c.grenade = this.pending.grenade;
+      c.cycleNade = this.pending.cycleNade;
       this.crosshair = { x: p.x, y: p.y };
     }
-    this.pending.reload = this.pending.switchWeapon = this.pending.grenade = false;
+    this.pending.reload = this.pending.switchWeapon = this.pending.grenade = this.pending.cycleNade = false;
     return c;
   }
 

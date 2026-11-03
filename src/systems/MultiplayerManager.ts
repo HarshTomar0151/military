@@ -137,7 +137,7 @@ export class MultiplayerManager extends Phaser.Events.EventEmitter {
   sendFire(f: { w: string; x: number; y: number; a: number }): void {
     this.socket?.emit('game:fire', f);
   }
-  sendGrenade(g: { x: number; y: number; vx: number; vy: number }): void {
+  sendGrenade(g: { x: number; y: number; vx: number; vy: number; k?: string }): void {
     this.socket?.emit('game:grenade', g);
   }
   sendHit(h: HitRequest): void {

@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { COLORS, FONT_DISPLAY, FONT_UI, GAME_H, GAME_W, hex } from '../config';
-import { WEAPONS } from '../data/weapons';
+import { NADES, NADE_ORDER, WEAPONS } from '../data/weapons';
 import { drawWeapon } from '../entities/WeaponArt';
 import type { GameScene, HudState } from '../scenes/GameScene';
 import { button, display, panel, ui } from './theme';
@@ -26,7 +26,9 @@ export class HUD {
   private ammoText: Phaser.GameObjects.Text;
   private reserveText: Phaser.GameObjects.Text;
   private wpnName: Phaser.GameObjects.Text;
-  private nadeText: Phaser.GameObjects.Text;
+  private nadeTexts: Phaser.GameObjects.Text[] = [];
+  private wbars: Phaser.GameObjects.Graphics;
+  private k = 1;
   private kdText: Phaser.GameObjects.Text;
   private reloadText: Phaser.GameObjects.Text;
   private wpnGfx: Phaser.GameObjects.Graphics;
@@ -49,62 +51,66 @@ export class HUD {
   private lastWeapon = '';
   private lastAlt = '';
   private cache = { timer: '', ammo: '', reserve: '', nade: '', kd: '', hp: '', sl: '', sr: '', sub: '' };
-  private px: number; // left panel x
-  private ax: number; // ammo panel x
-  private py: number;
-  private ay: number;
 
   constructor(private scene: Phaser.Scene, private game: GameScene) {
     const s0 = game.hudState();
     const touch = s0.touch;
     if (touch) this.touch = new TouchControls(scene);
-    // on touch screens the thumbs own the bottom corners: vitals go under the minimap, ammo bottom-center
-    this.px = touch ? 34 : 24;
-    this.py = touch ? 172 : GAME_H - 118;
-    this.ax = touch ? 455 : GAME_W - 24 - 300;
-    this.ay = touch ? GAME_H - 104 : GAME_H - 118;
+    // phones get a bigger HUD (like Mini Militia); the thumbs own the bottom corners
+    const K = touch ? 1.22 : 1;
+    const KM = touch ? 1.35 : 1;
+    this.k = K;
 
     // ---- top-center scoreboard
-    const cx = GAME_W / 2;
-    const top = panel(scene, cx - 150, 14, 300, 58, { alpha: 0.7, cut: 10 });
-    top.setDepth(10);
-    this.timer = ui(scene, cx, 26, '5:00', 34, '#d8ffe0', { origin: [0.5, 0] }).setDepth(11);
-    this.scoreL = ui(scene, cx - 98, 24, '0', 38, '#d8ffe0', { origin: [0.5, 0] }).setDepth(11);
-    this.scoreR = ui(scene, cx + 98, 24, '0', 38, '#d8ffe0', { origin: [0.5, 0] }).setDepth(11);
-    this.scoreSub = ui(scene, cx, 78, '', 15, COLORS.textDim, { origin: [0.5, 0] }).setDepth(11);
+    const sb = scene.add.container(GAME_W / 2, 12).setDepth(10).setScale(K);
+    this.timer = ui(scene, 0, 12, '5:00', 34, '#d8ffe0', { origin: [0.5, 0] });
+    this.scoreL = ui(scene, -98, 10, '0', 38, '#d8ffe0', { origin: [0.5, 0] });
+    this.scoreR = ui(scene, 98, 10, '0', 38, '#d8ffe0', { origin: [0.5, 0] });
+    this.scoreSub = ui(scene, 0, 66, '', 15, COLORS.textDim, { origin: [0.5, 0] });
+    sb.add([panel(scene, -150, 0, 300, 58, { alpha: 0.7, cut: 10 }), this.timer, this.scoreL, this.scoreR, this.scoreSub]);
 
     // ---- minimap
-    const mm = { x: 20, y: 20, w: 210, h: 105 };
-    panel(scene, mm.x - 6, mm.y - 6, mm.w + 12, mm.h + 12, { alpha: 0.6, cut: 8 }).setDepth(10);
-    this.mapStatic = scene.add.graphics().setDepth(11);
-    const sx = mm.w / game.map.w;
-    const sy = mm.h / game.map.h;
+    const mmW = 210;
+    const mmH = 105;
+    const mini = scene.add.container(14, 14).setDepth(10).setScale(KM);
+    this.mapStatic = scene.add.graphics();
+    this.mapDots = scene.add.graphics();
+    const sx = mmW / game.map.w;
+    const sy = mmH / game.map.h;
     this.mapStatic.fillStyle(COLORS.neonDim, 0.9);
-    for (const r of game.map.solids.slice(4)) this.mapStatic.fillRect(mm.x + r.x * sx, mm.y + r.y * sy, Math.max(1, r.w * sx), Math.max(1.4, r.h * sy));
-    this.mapStatic.fillRect(mm.x, mm.y + (game.map.h - 100) * sy, mm.w, 100 * sy);
-    this.mapDots = scene.add.graphics().setDepth(12);
+    for (const r of game.map.solids.slice(4)) this.mapStatic.fillRect(6 + r.x * sx, 6 + r.y * sy, Math.max(1, r.w * sx), Math.max(1.4, r.h * sy));
+    this.mapStatic.fillRect(6, 6 + (game.map.h - 100) * sy, mmW, 100 * sy);
+    mini.add([panel(scene, 0, 0, mmW + 12, mmH + 12, { alpha: 0.6, cut: 8 }), this.mapStatic, this.mapDots]);
 
-    // ---- vitals (bottom-left / center)
-    this.bars = scene.add.graphics().setDepth(10);
-    panel(scene, this.px - 10, this.py - 12, 320, 98, { alpha: 0.7, cut: 10 }).setDepth(9);
-    this.hpText = ui(scene, this.px + 2, this.py - 8, '100', 34, '#d8ffe0');
-    this.hpText.setDepth(11);
-    ui(scene, this.px + 66, this.py + 5, 'HEALTH', 13, COLORS.textDim).setDepth(11);
-    ui(scene, this.px + 2, this.py + 44, 'ARMOR', 11, COLORS.textDim).setDepth(11);
-    ui(scene, this.px + 2, this.py + 62, 'JETPACK', 11, COLORS.textDim).setDepth(11);
+    // ---- vitals
+    const vit = scene.add.container(14, touch ? 14 + (mmH + 12) * KM + 10 : GAME_H - 130).setDepth(10).setScale(K);
+    this.bars = scene.add.graphics();
+    this.hpText = ui(scene, 12, 4, '100', 34, '#d8ffe0');
+    vit.add([
+      panel(scene, 0, 0, 320, 98, { alpha: 0.7, cut: 10 }), this.bars, this.hpText,
+      ui(scene, 76, 17, 'HEALTH', 13, COLORS.textDim),
+      ui(scene, 12, 56, 'ARMOR', 11, COLORS.textDim),
+      ui(scene, 12, 74, 'JETPACK  ∞', 11, hex(COLORS.amber)),
+    ]);
 
     // ---- weapon panel
-    panel(scene, this.ax - 10, this.ay - 12, 320, 98, { alpha: 0.7, cut: 10 }).setDepth(9);
-    this.wpnGfx = scene.add.graphics().setDepth(11);
-    this.altGfx = scene.add.graphics().setDepth(11);
-    this.wpnName = ui(scene, this.ax + 6, this.ay - 6, '', 14, COLORS.textDim).setDepth(11);
-    this.ammoText = ui(scene, this.ax + 310 - 100, this.ay - 4, '0', 56, '#d8ffe0', { origin: [1, 0] }).setDepth(11);
-    this.reserveText = ui(scene, this.ax + 308 - 96, this.ay + 22, '/ 0', 26, hex(COLORS.neonDim)).setDepth(11);
-    this.reloadText = display(scene, this.ax + 6, this.ay + 30, '', 15, hex(COLORS.amber)).setDepth(12);
-    this.nadeText = ui(scene, this.ax + 6, this.ay + 62, '', 16, '#d8ffe0').setDepth(11);
-    ui(scene, this.ax + 232, this.ay + 62, '[Q] SWAP', 12, COLORS.textDim).setDepth(11);
+    const KW = touch ? 1.1 : 1; // weapon panel sits between the thumb clusters, so it scales a little less
+    const wp = scene.add.container(touch ? (GAME_W - 320 * KW) / 2 : GAME_W - 24 - 310, touch ? GAME_H - 98 * KW - 10 : GAME_H - 130).setDepth(10).setScale(KW);
+    this.wpnGfx = scene.add.graphics();
+    this.altGfx = scene.add.graphics();
+    this.wbars = scene.add.graphics();
+    this.wpnName = ui(scene, 16, 6, '', 14, COLORS.textDim);
+    this.ammoText = ui(scene, 220, 6, '0', 56, '#d8ffe0', { origin: [1, 0] });
+    this.reserveText = ui(scene, 224, 30, '/ 0', 26, hex(COLORS.neonDim));
+    this.reloadText = display(scene, 16, 40, '', 15, hex(COLORS.amber));
+    this.nadeTexts = [16, 98, 160].map((x) => ui(scene, x, 70, '', 14, '#d8ffe0'));
+    wp.add([
+      panel(scene, 0, 0, 320, 98, { alpha: 0.7, cut: 10 }), this.wpnGfx, this.altGfx, this.wbars,
+      this.wpnName, this.ammoText, this.reserveText, this.reloadText, ...this.nadeTexts,
+      ui(scene, 270, 72, '[E]', 12, COLORS.textDim),
+    ]);
 
-    this.kdText = ui(scene, GAME_W - 24, 24, '', 16, '#d8ffe0', { origin: [1, 0] }).setDepth(11);
+    this.kdText = ui(scene, GAME_W - 24, 24, '', touch ? 20 : 16, '#d8ffe0', { origin: [1, 0] }).setDepth(11);
 
     // ---- overlays
     this.fx = scene.add.graphics().setDepth(40);
@@ -131,7 +137,7 @@ export class HUD {
     this.hint = scene.add.container(0, 0, [hbg, ht]).setDepth(48);
 
     // pause button
-    const pause = scene.add.text(GAME_W - 24, 62, '❚❚ PAUSE', { fontFamily: FONT_DISPLAY, fontSize: '13px', fontStyle: '700', color: '#7fa889' }).setOrigin(1, 0).setDepth(12).setInteractive({ useHandCursor: true });
+    const pause = scene.add.text(GAME_W - 24, touch ? 56 : 62, '❚❚ PAUSE', { fontFamily: FONT_DISPLAY, fontSize: touch ? '20px' : '13px', fontStyle: '700', color: '#7fa889' }).setOrigin(1, 0).setDepth(12).setInteractive({ useHandCursor: true });
     pause.on('pointerdown', () => game.setPaused(!game.paused));
     pause.on('pointerover', () => pause.setColor('#39ff14'));
     pause.on('pointerout', () => pause.setColor('#7fa889'));
@@ -223,7 +229,7 @@ export class HUD {
 
   update(dt: number): void {
     const s: HudState = this.game.hudState();
-    this.touch?.update();
+    this.touch?.update(dt);
     const now = this.scene.time.now;
 
     // timer + scores
@@ -245,8 +251,8 @@ export class HUD {
     // vitals
     const b = this.bars;
     b.clear();
-    const bx = this.px + 2;
-    const by = this.py + 28;
+    const bx = 12;
+    const by = 40;
     const hpFrac = Phaser.Math.Clamp(s.hp / 100, 0, 1);
     const hpCol = hpFrac > 0.5 ? COLORS.neon : hpFrac > 0.25 ? COLORS.amber : COLORS.danger;
     b.fillStyle(0x0a110c, 1).fillRect(bx, by, 290, 14);
@@ -255,8 +261,7 @@ export class HUD {
     b.fillStyle(0x0a110c, 1).fillRect(bx + 56, by + 20, 234, 8);
     b.fillStyle(COLORS.ice, 1).fillRect(bx + 57, by + 21, 232 * Phaser.Math.Clamp(s.armor / 50, 0, 1), 6);
     b.fillStyle(0x0a110c, 1).fillRect(bx + 56, by + 38, 234, 8);
-    const fuel = Phaser.Math.Clamp(s.fuel / 100, 0, 1);
-    b.fillStyle(fuel < 0.2 ? COLORS.danger : COLORS.amber, 1).fillRect(bx + 57, by + 39, 232 * fuel, 6);
+    b.fillStyle(COLORS.amber, 1).fillRect(bx + 57, by + 39, 232, 6); // jetpack fuel is unlimited
     const hp = String(Math.ceil(s.hp));
     if (hp !== this.cache.hp) { this.cache.hp = hp; this.hpText.setText(hp); }
 
@@ -264,24 +269,35 @@ export class HUD {
     if (s.weaponId !== this.lastWeapon) {
       this.lastWeapon = s.weaponId;
       this.wpnGfx.clear();
-      drawWeapon(this.wpnGfx, s.weaponId, this.ax + 36, this.ay + 24, 1.3);
+      drawWeapon(this.wpnGfx, s.weaponId, 46, 36, 1.3);
       this.wpnName.setText(s.weaponName);
     }
     if (s.otherId !== this.lastAlt) {
       this.lastAlt = s.otherId;
       this.altGfx.clear();
-      drawWeapon(this.altGfx, s.otherId, this.ax + 210, this.ay + 70, 0.55);
+      drawWeapon(this.altGfx, s.otherId, 226, 84, 0.5);
     }
     const ammo = String(s.ammo);
     if (ammo !== this.cache.ammo) { this.cache.ammo = ammo; this.ammoText.setText(ammo).setColor(s.ammo === 0 ? '#ff5a4a' : '#d8ffe0'); }
     const res = s.reserve === Infinity ? '/ ∞' : `/ ${s.reserve}`;
     if (res !== this.cache.reserve) { this.cache.reserve = res; this.reserveText.setText(res); }
-    const nades = '●'.repeat(Math.max(0, s.grenades)) || '–';
-    if (nades !== this.cache.nade) { this.cache.nade = nades; this.nadeText.setText(`GRN ${nades}`); }
+    const nadeKey = NADE_ORDER.map((k2) => s.nades[k2]).join(',') + s.nadeSel;
+    if (nadeKey !== this.cache.nade) {
+      this.cache.nade = nadeKey;
+      NADE_ORDER.forEach((k2, i) => {
+        const sel = k2 === s.nadeSel;
+        this.nadeTexts[i]
+          .setText(`${sel ? '▸ ' : ''}${NADES[k2].name} ${s.nades[k2]}`)
+          .setColor(s.nades[k2] <= 0 ? '#4d6655' : sel ? hex(NADES[k2].color) : '#9fbfa8')
+          .setFontStyle(sel ? '700' : '500');
+      });
+    }
+    const wb = this.wbars;
+    wb.clear();
     if (s.reload > 0) {
       this.reloadText.setText('RELOADING');
-      b.fillStyle(0x0a110c, 1).fillRect(this.ax + 6, this.ay + 52, 200, 6);
-      b.fillStyle(COLORS.amber, 1).fillRect(this.ax + 6, this.ay + 52, 200 * s.reload, 6);
+      wb.fillStyle(0x0a110c, 1).fillRect(16, 62, 200, 6);
+      wb.fillStyle(COLORS.amber, 1).fillRect(16, 62, 200 * s.reload, 6);
     } else {
       this.reloadText.setText('');
     }
@@ -293,11 +309,11 @@ export class HUD {
     const sy = 105 / this.game.map.h;
     for (const d of s.dots) {
       const col = d.me ? 0xffffff : d.team >= 0 ? (d.team === s.myTeam ? COLORS.team0 : COLORS.team1) : COLORS.danger;
-      md.fillStyle(col, 1).fillCircle(20 + d.x * sx, 20 + d.y * sy, d.me ? 3.5 : 2.5);
+      md.fillStyle(col, 1).fillCircle(6 + d.x * sx, 6 + d.y * sy, d.me ? 3.5 : 2.5);
     }
 
     // kill feed
-    let y = 108;
+    let y = this.k > 1 ? 130 : 108;
     for (let i = this.feed.length - 1; i >= 0; i--) {
       const f = this.feed[i];
       if (now - f.born > 6000) {

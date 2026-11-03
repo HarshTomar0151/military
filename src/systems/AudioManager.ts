@@ -138,6 +138,10 @@ class AudioManager {
         this.hiss(0.45, 6000, 200, 0.8 * v);
         this.tone(90, 30, 0.4, 'sine', 0.5 * v);
         break;
+      case 'gas':
+        this.hiss(1.1, 3200, 700, 0.55 * v);
+        this.tone(160, 60, 0.3, 'sawtooth', 0.12 * v);
+        break;
       case 'explosion':
         this.hiss(1.0, 1100, 50, 1.2 * v);
         this.tone(70, 22, 0.7, 'sine', 0.7 * v);

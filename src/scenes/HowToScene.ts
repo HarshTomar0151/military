@@ -55,12 +55,12 @@ const PAGES: Page[] = [
   {
     title: 'JETPACK',
     sub: 'Fly to high platforms, dodge fire, get the drop on enemies.',
-    desktop: [{ keys: ['SHIFT'], desc: 'Hold to fly. Combine with A / D to steer' }],
+    desktop: [{ keys: ['SHIFT'], desc: 'Hold to fly — unlimited fuel. Steer with A / D' }],
     mobile: [
       { keys: ['JET'], desc: 'Hold to fly' },
       { keys: ['LEFT STICK ↑'], desc: 'Push the move stick up to fly too' },
     ],
-    tip: 'Watch the orange JETPACK bar. It drains while flying and refills fastest on the ground.',
+    tip: 'Your jetpack never runs out. Stay airborne, shoot from above and dodge everything.',
     anim: (t) => {
       const up = (Math.sin(t * 1.4) + 1) / 2;
       return { x: Math.sin(t * 0.7) * 60, aim: 0, vx: 0, grounded: false, jetting: Math.cos(t * 1.4) > -0.3, dy: -up * 120 };
@@ -68,18 +68,18 @@ const PAGES: Page[] = [
   },
   {
     title: 'WEAPONS & GRENADES',
-    sub: 'Carry two weapons plus grenades. Choose them in CUSTOMIZE.',
+    sub: 'Two weapons plus three kinds of grenades. Choose weapons in CUSTOMIZE.',
     desktop: [
-      { keys: ['R'], desc: 'Reload' },
-      { keys: ['Q'], desc: 'Swap primary / secondary weapon' },
-      { keys: ['G', 'RIGHT CLICK'], desc: 'Throw a grenade' },
+      { keys: ['R', 'Q'], desc: 'Reload  /  swap primary + secondary weapon' },
+      { keys: ['G', 'RIGHT CLICK'], desc: 'Throw the selected grenade' },
+      { keys: ['E'], desc: 'Switch grenade type: FRAG / GAS / POISON' },
     ],
     mobile: [
-      { keys: ['RLD'], desc: 'Reload' },
-      { keys: ['SWAP'], desc: 'Swap weapon' },
-      { keys: ['NADE'], desc: 'Throw a grenade' },
+      { keys: ['RLD', 'SWAP'], desc: 'Reload  /  swap weapon' },
+      { keys: ['NADE'], desc: 'Throw the selected grenade' },
+      { keys: ['TYPE'], desc: 'Switch grenade type: FRAG / GAS / POISON' },
     ],
-    tip: 'Rockets and grenades damage everything nearby — and can launch you into the air.',
+    tip: 'FRAG explodes. GAS makes a slowing, damaging cloud. POISON keeps hurting you even after you leave the cloud.',
     anim: () => ({ x: 0, aim: 0, vx: 0, grounded: true, jetting: false, dy: 0 }),
   },
   {

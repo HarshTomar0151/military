@@ -146,7 +146,7 @@ export interface ClientToServerEvents {
   'room:start': (ack: (res: Ack<null>) => void) => void;
   'game:state': (s: NetState) => void;
   'game:fire': (f: { w: string; x: number; y: number; a: number }) => void;
-  'game:grenade': (g: { x: number; y: number; vx: number; vy: number }) => void;
+  'game:grenade': (g: { x: number; y: number; vx: number; vy: number; k?: string }) => void;
   'game:hit': (h: HitRequest) => void;
   'game:pickup': (p: { idx: number; kind: 'health' | 'armor' | 'ammo' }) => void;
 }
@@ -156,7 +156,7 @@ export interface ServerToClientEvents {
   'game:start': (p: StartPayload) => void;
   'game:state': (s: NetState & { id: string }) => void;
   'game:fire': (f: { id: string; w: string; x: number; y: number; a: number }) => void;
-  'game:grenade': (g: { id: string; x: number; y: number; vx: number; vy: number }) => void;
+  'game:grenade': (g: { id: string; x: number; y: number; vx: number; vy: number; k?: string }) => void;
   'game:damage': (d: DamagePayload) => void;
   'game:death': (d: DeathPayload) => void;
   'game:respawn': (r: { id: string; hp: number; armor: number }) => void;

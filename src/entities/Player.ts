@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { MAX_ARMOR, MAX_HP, SPAWN_PROTECT_MS, applyDamage, type Appearance, type NetState } from '../../shared/protocol';
 import { PHYS } from '../config';
-import { GRENADE, WEAPONS, isWeaponId, type WeaponDef, type WeaponId } from '../data/weapons';
+import { GRENADE, NADES, NADE_ORDER, WEAPONS, isWeaponId, type NadeKind, type WeaponDef, type WeaponId } from '../data/weapons';
 import type { Rect } from '../systems/Collision';
 import { PlayerView } from './PlayerView';
 import { Weapon } from './Weapon';
@@ -16,17 +16,18 @@ export interface Controls {
   reload: boolean; // one-shot, consumed by the player
   switchWeapon: boolean; // one-shot
   grenade: boolean; // one-shot
+  cycleNade: boolean; // one-shot: next grenade type
   aim: number; // radians
 }
 
 export const emptyControls = (): Controls => ({
-  moveX: 0, jump: false, jet: false, shoot: false, reload: false, switchWeapon: false, grenade: false, aim: 0,
+  moveX: 0, jump: false, jet: false, shoot: false, reload: false, switchWeapon: false, grenade: false, cycleNade: false, aim: 0,
 });
 
 /** Services the player needs from the scene; keeps entity code free of scene internals. */
 export interface PlayerContext {
   fire(p: Player, def: WeaponDef, sx: number, sy: number, aim: number, muzzleDist: number): void;
-  throwGrenade(p: Player, x: number, y: number, vx: number, vy: number): void;
+  throwGrenade(p: Player, kind: NadeKind, x: number, y: number, vx: number, vy: number): void;
   now(): number;
   sfx(name: string, x: number, y: number, vol?: number): void;
   jetFx(x: number, y: number): void;
@@ -65,7 +66,10 @@ export class Player {
   armor = MAX_ARMOR;
   alive = true;
   fuel = PHYS.jetFuelMax;
-  grenades = GRENADE.count;
+  nades: Record<NadeKind, number> = { frag: NADES.frag.start, gas: NADES.gas.start, poison: NADES.poison.start };
+  nadeSel: NadeKind = 'frag';
+  slowUntil = 0;
+  slowMult = 1;
   protectedUntil = 0;
   aim = 0;
   jetting = false;
@@ -78,8 +82,6 @@ export class Player {
   private coyote = 0;
   private prevJump = false;
   private prevShoot = false;
-  private jetLocked = false;
-  private regenDelay = 0;
   private switchLock = 0;
   private grenadeReady = 0;
   private lastGrounded = false;
@@ -153,8 +155,9 @@ export class Player {
     this.hp = MAX_HP;
     this.armor = MAX_ARMOR;
     this.fuel = PHYS.jetFuelMax;
-    this.grenades = GRENADE.count;
-    this.jetLocked = false;
+    this.nades = { frag: NADES.frag.start, gas: NADES.gas.start, poison: NADES.poison.start };
+    this.nadeSel = 'frag';
+    this.slowUntil = 0;
     this.weapons[0].refill();
     this.weapons[1].refill();
     this.slot = 0;
@@ -204,7 +207,7 @@ export class Player {
   }
   restock(): void {
     this.weapons.forEach((w) => w.addReserve(1));
-    this.grenades = Math.min(GRENADE.count + 2, this.grenades + 2);
+    for (const k of NADE_ORDER) this.nades[k] = Math.min(NADES[k].max, this.nades[k] + (k === 'frag' ? 2 : 1));
     this.fuel = PHYS.jetFuelMax;
   }
 
@@ -267,7 +270,8 @@ export class Player {
     this.lastGrounded = this.grounded;
 
     // horizontal movement (recoil / blast velocity decays via friction instead of being clamped)
-    const target = c.moveX * PHYS.runSpeed * w.def.moveMult;
+    const slow = now < this.slowUntil ? this.slowMult : 1;
+    const target = c.moveX * PHYS.runSpeed * w.def.moveMult * slow;
     const accel = this.grounded ? PHYS.groundAccel : PHYS.airAccel;
     const fric = this.grounded ? PHYS.groundFriction : PHYS.airFriction;
     if (Math.abs(c.moveX) > 0.1) {
@@ -294,19 +298,10 @@ export class Player {
     this.prevJump = c.jump;
 
     // jetpack
-    if (this.fuel <= 0.01) this.jetLocked = true;
-    if (this.jetLocked && this.fuel > 20) this.jetLocked = false;
-    this.jetting = c.jet && !this.jetLocked && this.fuel > 0;
-    if (this.jetting) {
-      vy = Math.max(vy - PHYS.jetAccel * dt, PHYS.jetMaxRise);
-      this.fuel = Math.max(0, this.fuel - PHYS.jetDrain * dt);
-      this.regenDelay = PHYS.jetRegenDelay;
-    } else {
-      this.regenDelay -= dt;
-      if (this.regenDelay <= 0) {
-        this.fuel = Math.min(PHYS.jetFuelMax, this.fuel + (this.grounded ? PHYS.jetRegenGround : PHYS.jetRegenAir) * dt);
-      }
-    }
+    // unlimited fuel: hold to fly for as long as you like
+    this.jetting = c.jet;
+    this.fuel = PHYS.jetFuelMax;
+    if (this.jetting) vy = Math.max(vy - PHYS.jetAccel * dt, PHYS.jetMaxRise);
 
     // aim
     this.aim = c.aim;
@@ -340,15 +335,22 @@ export class Player {
     this.prevShoot = c.shoot;
 
     // grenade
+    if (c.cycleNade) {
+      c.cycleNade = false;
+      this.cycleNade();
+    }
     if (c.grenade) {
       c.grenade = false;
-      if (this.grenades > 0 && now >= this.grenadeReady) {
-        this.grenades--;
+      if (this.nades[this.nadeSel] <= 0) this.cycleNade(true);
+      if (this.nades[this.nadeSel] > 0 && now >= this.grenadeReady) {
+        const kind = this.nadeSel;
+        this.nades[kind]--;
         this.grenadeReady = now + GRENADE.cooldownMs;
         const dx = Math.cos(this.aim);
         const dy = Math.sin(this.aim);
         this.ctx.throwGrenade(
           this,
+          kind,
           this.x + dx * 14,
           this.y - 3 + dy * 14,
           dx * GRENADE.throwSpeed + vx * 0.5,
@@ -359,6 +361,23 @@ export class Player {
     }
 
     body.setVelocity(vx, vy);
+  }
+
+  /** Select the next grenade type (optionally only ones we still have). */
+  cycleNade(onlyStocked = false): void {
+    const start = NADE_ORDER.indexOf(this.nadeSel);
+    for (let i = 1; i <= NADE_ORDER.length; i++) {
+      const k = NADE_ORDER[(start + i) % NADE_ORDER.length];
+      if (!onlyStocked || this.nades[k] > 0) {
+        this.nadeSel = k;
+        if (!onlyStocked) this.ctx.sfx('switch', this.x, this.y, 0.5);
+        return;
+      }
+    }
+  }
+
+  get totalNades(): number {
+    return this.nades.frag + this.nades.gas + this.nades.poison;
   }
 
   private shoot(def: WeaponDef, spread: number): void {

@@ -61,7 +61,7 @@ function defaults(): SaveData {
       shake: true,
       fps: false,
       dmgNumbers: true,
-      particles: 'high',
+      particles: typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches ? 'low' : 'high',
       touch: 'auto',
       touchScale: 1,
       touchOpacity: 0.7,

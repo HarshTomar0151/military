@@ -62,7 +62,7 @@ export class SettingsScene extends Phaser.Scene {
         save();
       }
     }, { fontSize: 12 });
-    ui(this, 684, 556, 'Desktop: WASD/Arrows move · Space jump · Shift jetpack · Mouse aim/fire · R reload · Q swap · G or Right-click grenade · Esc pause', 13, COLORS.textDim, { width: 506 });
+    ui(this, 684, 556, 'Desktop: WASD/Arrows move · Space jump · Shift jetpack · Mouse aim/fire · R reload · Q swap · G / Right-click grenade · E grenade type · Esc pause', 13, COLORS.textDim, { width: 506 });
   }
 
   private resetNote!: Phaser.GameObjects.Text;

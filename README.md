@@ -26,7 +26,9 @@ Other scripts: `npm run dev:web` (client only), `npm run server` (server only), 
 
 An in-game **HOW TO PLAY** tutorial (menu button; shown automatically before the first match) explains all of this.
 
-Mobile (landscape): floating move stick, aim stick (auto-fire at the rim, optional), FIRE / JUMP / JET / NADE / RLD / SWAP buttons. Push the move stick up to use the jetpack. Touch mode is *Auto* (coarse-pointer devices) and can be forced in Settings.
+Grenades: **Frag** (explosion), **Gas** (slowing + damaging cloud), **Poison** (lingering damage) — `E` / TYPE button switches, `G` / NADE throws. The jetpack has unlimited fuel.
+
+Mobile (landscape): floating move stick, aim stick (auto-fire at the rim, optional), FIRE / JUMP / JET / NADE / TYPE / RLD / SWAP buttons (haptic feedback, smoothed sticks, bigger HUD and closer camera). Push the move stick up to use the jetpack. Touch mode is *Auto* (coarse-pointer devices) and can be forced in Settings.
 
 ## Game modes
 - **Practice** – Deathmatch or Team Deathmatch vs AI bots (1–7, easy/normal/hard).

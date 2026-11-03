@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#070b08" />
+    <title>JETFRONT</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 fill=%27%23070b08%27/%3E%3Cpath d=%27M8 6h16v4h-6v12a6 6 0 0 1-12 0h4a2 2 0 0 0 4 0V10H8z%27 fill=%27%2339ff14%27/%3E%3C/svg%3E" />
+    <style>
+      html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #070b08; overflow: hidden;
+        overscroll-behavior: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent; touch-action: none; font-family: 'Rajdhani', sans-serif; }
+      #game { position: fixed; inset: 0; }
+      #game canvas { display: block; touch-action: none; }
+      #boot { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column;
+        color: #39ff14; font: 700 22px 'Orbitron', monospace; letter-spacing: 6px; background: #070b08; z-index: 5;
+        transition: opacity .4s; }
+      #boot.hide { opacity: 0; pointer-events: none; }
+      #boot i { display: block; width: 180px; height: 3px; margin-top: 18px; background: #12301a; overflow: hidden; position: relative; }
+      #boot i::after { content: ''; position: absolute; inset: 0; width: 40%; background: #39ff14; animation: ld 1s infinite ease-in-out; }
+      @keyframes ld { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }
+
+      #rotate { display: none; position: fixed; inset: 0; z-index: 20; background: #070b08; color: #39ff14; text-align: center;
+        align-items: center; justify-content: center; flex-direction: column; font: 700 20px 'Orbitron', monospace; letter-spacing: 3px; }
+      #rotate span { font: 500 16px 'Rajdhani', sans-serif; color: #9fcca8; margin-top: 10px; letter-spacing: 1px; }
+      @media (orientation: portrait) and (pointer: coarse) { #rotate { display: flex; } }
+
+      #modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 30;
+        background: rgba(2, 6, 3, .78); backdrop-filter: blur(4px); }
+      #modal.show { display: flex; }
+      #modal .box { width: min(440px, 88vw); padding: 24px; background: #0d1610; border: 1px solid #39ff14; box-shadow: 0 0 40px rgba(57,255,20,.25);
+        clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px)); }
+      #modal h3 { margin: 0 0 14px; font: 700 18px 'Orbitron', monospace; color: #39ff14; letter-spacing: 3px; }
+      #modal input { width: 100%; box-sizing: border-box; padding: 12px; background: #050a06; border: 1px solid #1f6b12; color: #d8ffe0;
+        font: 600 20px 'Rajdhani', sans-serif; outline: none; -webkit-user-select: text; user-select: text; }
+      #modal input:focus { border-color: #39ff14; }
+      #modal .row { display: flex; gap: 10px; margin-top: 16px; justify-content: flex-end; }
+      #modal button { padding: 10px 22px; border: 1px solid #39ff14; background: transparent; color: #39ff14; cursor: pointer;
+        font: 700 16px 'Orbitron', monospace; letter-spacing: 2px; }
+      #modal button.primary { background: #39ff14; color: #041006; }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+    <div id="boot">JETFRONT<i></i></div>
+    <div id="rotate">ROTATE DEVICE<span>JETFRONT plays in landscape</span></div>
+    <div id="modal">
+      <div class="box">
+        <h3 id="modal-title"></h3>
+        <input id="modal-input" maxlength="64" autocomplete="off" spellcheck="false" />
+        <div class="row">
+          <button id="modal-cancel">CANCEL</button>
+          <button id="modal-ok" class="primary">OK</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

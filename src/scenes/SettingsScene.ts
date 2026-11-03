@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { COLORS, GAME_H } from '../config';
 import { audio } from '../systems/AudioManager';
 import { promptText } from '../systems/DomPrompt';
+import { toggleFullscreen } from '../systems/Fullscreen';
 import { net } from '../systems/MultiplayerManager';
 import { store, type TouchMode } from '../systems/Storage';
 import { backButton, button, createBackdrop, fadeTo, panel, screenTitle, selector, slider, toggle, ui } from '../ui/theme';
@@ -30,12 +31,10 @@ export class SettingsScene extends Phaser.Scene {
     toggle(this, 90, 320, 'DAMAGE NUMBERS', st.dmgNumbers, (v) => { st.dmgNumbers = v; save(); }, 490);
     toggle(this, 90, 370, 'SHOW FPS', st.fps, (v) => { st.fps = v; save(); }, 490);
     selector<'low' | 'high'>(this, 90, 430, 490, 'PARTICLES', [{ value: 'high', text: 'HIGH' }, { value: 'low', text: 'LOW' }], st.particles, (v) => { st.particles = v; save(); });
-    button(this, 205, 500, 230, 42, '⛶ TOGGLE FULLSCREEN', () => {
-      if (this.scale.isFullscreen) this.scale.stopFullscreen();
-      else this.scale.startFullscreen();
-    }, { fontSize: 12 });
-    button(this, 465, 500, 230, 42, 'RESET PROGRESS', () => this.confirmReset(), { fontSize: 12, danger: true });
-    this.resetNote = ui(this, 90, 540, '', 14, '#ff8a8a');
+    toggle(this, 90, 478, 'AUTO FULLSCREEN ON TOUCH', st.autoFullscreen, (v) => { st.autoFullscreen = v; save(); }, 490);
+    button(this, 205, 535, 230, 42, '⛶ TOGGLE FULLSCREEN', () => void toggleFullscreen(), { fontSize: 12 });
+    button(this, 465, 535, 230, 42, 'RESET PROGRESS', () => this.confirmReset(), { fontSize: 12, danger: true });
+    this.resetNote = ui(this, 90, 580, '', 14, '#ff8a8a');
 
     // ---- controls / network
     panel(this, 650, 140, 574, 500, { title: 'CONTROLS & NETWORK' });

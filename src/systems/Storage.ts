@@ -14,6 +14,7 @@ export interface Settings {
   touchScale: number;
   touchOpacity: number;
   autoFire: boolean; // aim stick fires when pushed to the edge
+  autoFullscreen: boolean; // first tap on a touch device enters fullscreen
   serverUrl: string; // empty = same origin (dev proxy)
 }
 
@@ -65,6 +66,7 @@ function defaults(): SaveData {
       touchScale: 1,
       touchOpacity: 0.7,
       autoFire: true,
+      autoFullscreen: true,
       serverUrl: '',
     },
     stats: { kills: 0, deaths: 0, matches: 0, wins: 0, headshots: 0, xp: 0, bestKills: 0 },

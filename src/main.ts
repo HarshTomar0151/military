@@ -15,6 +15,7 @@ import { PracticeScene } from './scenes/PracticeScene';
 import { ResultsScene } from './scenes/ResultsScene';
 import { SettingsScene } from './scenes/SettingsScene';
 import { audio } from './systems/AudioManager';
+import { installAutoFullscreen } from './systems/Fullscreen';
 import { net } from './systems/MultiplayerManager';
 
 // Render every Text object at 2x for crisp typography on high-DPI screens.
@@ -45,6 +46,8 @@ const unlock = (): void => audio.unlock();
 window.addEventListener('pointerdown', unlock);
 window.addEventListener('keydown', unlock);
 window.addEventListener('touchend', unlock);
+
+installAutoFullscreen();
 
 // Keep the debug handle for local testing.
 (window as unknown as { __game: Phaser.Game }).__game = game;

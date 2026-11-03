@@ -3,6 +3,7 @@ import { COLORS, FONT_DISPLAY, GAME_H, GAME_W, hex } from '../config';
 import { PlayerView } from '../entities/PlayerView';
 import { isWeaponId, type WeaponId } from '../data/weapons';
 import { audio } from '../systems/AudioManager';
+import { canFullscreen, isFullscreen, isStandalone, isTouchDevice, toggleFullscreen } from '../systems/Fullscreen';
 import { store } from '../systems/Storage';
 import { button, createBackdrop, display, fadeTo, panel, ui } from '../ui/theme';
 import type { GameConfig } from './GameScene';
@@ -85,9 +86,24 @@ export class MenuScene extends Phaser.Scene {
     fs.on('pointerout', () => fs.setColor(COLORS.textDim));
     fs.on('pointerdown', () => {
       audio.play('ui');
-      if (this.scale.isFullscreen) this.scale.stopFullscreen();
-      else this.scale.startFullscreen();
+      void toggleFullscreen();
     });
+
+    // prominent fullscreen button for phones / tablets
+    if (isTouchDevice() && !isStandalone()) {
+      if (canFullscreen()) {
+        const fsBtn = button(this, GAME_W - 150, 46, 230, 46, '', () => void toggleFullscreen(), { primary: !isFullscreen(), fontSize: 14 });
+        const sync = (): void => {
+          fsBtn.setText(isFullscreen() ? '⛶ EXIT FULLSCREEN' : '⛶ GO FULLSCREEN');
+        };
+        sync();
+        document.addEventListener('fullscreenchange', sync);
+        this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => document.removeEventListener('fullscreenchange', sync));
+      } else {
+        // iPhone Safari has no fullscreen API
+        ui(this, GAME_W - 30, 36, 'Full screen: Share ▸ Add to Home Screen', 15, '#ffb020', { origin: [1, 0.5] });
+      }
+    }
   }
 
   update(_t: number, delta: number): void {

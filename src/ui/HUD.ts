@@ -3,7 +3,7 @@ import { COLORS, FONT_DISPLAY, FONT_UI, GAME_H, SAFE, SCREEN_W, hex } from '../c
 import { NADES, NADE_ORDER, WEAPONS } from '../data/weapons';
 import { drawWeapon } from '../entities/WeaponArt';
 import type { GameScene, HudState } from '../scenes/GameScene';
-import { button, display, panel, ui } from './theme';
+import { button, display, hudPanel, panel, ui } from './theme';
 import { TouchControls } from './TouchControls';
 import { canFullscreen, isTouchDevice, toggleFullscreen } from '../systems/Fullscreen';
 import { store } from '../systems/Storage';
@@ -57,61 +57,63 @@ export class HUD {
     const s0 = game.hudState();
     const touch = s0.touch;
     if (touch) this.touch = new TouchControls(scene);
-    // phones get a bigger HUD (like Mini Militia); the thumbs own the bottom corners
-    const K = touch ? 1.22 : 1;
-    const KM = touch ? 1.35 : 1;
+    // Mini-Militia-style HUD: slim bars top-left, weapon + grenades top-right, thumbs own the bottom
+    const K = touch ? 1.15 : 1;
+    const KM = touch ? 0.95 : 0.85;
     this.k = K;
+    const L = 12 + SAFE.l;
 
     // ---- top-center scoreboard
-    const sb = scene.add.container(SCREEN_W / 2, 12).setDepth(10).setScale(K);
-    this.timer = ui(scene, 0, 12, '5:00', 34, '#d8ffe0', { origin: [0.5, 0] });
-    this.scoreL = ui(scene, -98, 10, '0', 38, '#d8ffe0', { origin: [0.5, 0] });
-    this.scoreR = ui(scene, 98, 10, '0', 38, '#d8ffe0', { origin: [0.5, 0] });
-    this.scoreSub = ui(scene, 0, 66, '', 15, COLORS.textDim, { origin: [0.5, 0] });
-    sb.add([panel(scene, -150, 0, 300, 58, { alpha: 0.7, cut: 10 }), this.timer, this.scoreL, this.scoreR, this.scoreSub]);
+    const sb = scene.add.container(SCREEN_W / 2, 8).setDepth(10).setScale(touch ? 1 : 0.92);
+    this.timer = ui(scene, 0, 4, '5:00', 30, '#ffffff', { origin: [0.5, 0] });
+    this.scoreL = ui(scene, -96, 6, '0', 30, '#ffffff', { origin: [0.5, 0] });
+    this.scoreR = ui(scene, 96, 6, '0', 30, '#ffffff', { origin: [0.5, 0] });
+    this.scoreSub = ui(scene, 0, 44, '', 13, '#d8e6dc', { origin: [0.5, 0] });
+    sb.add([hudPanel(scene, -150, 0, 300, 64), this.timer, this.scoreL, this.scoreR, this.scoreSub]);
 
-    // ---- minimap
+    // ---- vitals (top-left): health, armor, unlimited jetpack
+    const vit = scene.add.container(L, 10).setDepth(10).setScale(K);
+    this.bars = scene.add.graphics();
+    this.hpText = ui(scene, 10, 4, '100', 30, '#ffffff');
+    vit.add([
+      hudPanel(scene, 0, 0, 238, 60), this.bars, this.hpText,
+      ui(scene, 62, 3, 'HP', 10, '#f3b7e0'),
+      ui(scene, 62, 21, 'ARMOR', 9, '#9fe8ff'),
+      ui(scene, 62, 36, 'JET ∞', 9, '#a5d0ff'),
+    ]);
+
+    // ---- minimap (under the vitals, see-through)
     const mmW = 210;
     const mmH = 105;
-    const mini = scene.add.container(14 + SAFE.l, 14).setDepth(10).setScale(KM);
+    const mini = scene.add.container(L, 10 + 60 * K + 8).setDepth(10).setScale(KM);
     this.mapStatic = scene.add.graphics();
     this.mapDots = scene.add.graphics();
     const sx = mmW / game.map.w;
     const sy = mmH / game.map.h;
-    this.mapStatic.fillStyle(COLORS.neonDim, 0.9);
+    this.mapStatic.fillStyle(0xffffff, 0.6);
     for (const r of game.map.solids.slice(4)) this.mapStatic.fillRect(6 + r.x * sx, 6 + r.y * sy, Math.max(1, r.w * sx), Math.max(1.4, r.h * sy));
     this.mapStatic.fillRect(6, 6 + (game.map.h - 100) * sy, mmW, 100 * sy);
-    mini.add([panel(scene, 0, 0, mmW + 12, mmH + 12, { alpha: 0.6, cut: 8 }), this.mapStatic, this.mapDots]);
+    mini.add([hudPanel(scene, 0, 0, mmW + 12, mmH + 12, 0.3), this.mapStatic, this.mapDots]);
 
-    // ---- vitals
-    const vit = scene.add.container(14 + SAFE.l, touch ? 14 + (mmH + 12) * KM + 10 : GAME_H - 130).setDepth(10).setScale(K);
-    this.bars = scene.add.graphics();
-    this.hpText = ui(scene, 12, 4, '100', 34, '#d8ffe0');
-    vit.add([
-      panel(scene, 0, 0, 320, 98, { alpha: 0.7, cut: 10 }), this.bars, this.hpText,
-      ui(scene, 76, 17, 'HEALTH', 13, COLORS.textDim),
-      ui(scene, 12, 56, 'ARMOR', 11, COLORS.textDim),
-      ui(scene, 12, 74, 'JETPACK  ∞', 11, hex(COLORS.amber)),
-    ]);
-
-    // ---- weapon panel
-    const KW = touch ? 1.1 : 1; // weapon panel sits between the thumb clusters, so it scales a little less
-    const wp = scene.add.container(touch ? (SCREEN_W - 320 * KW) / 2 : SCREEN_W - 24 - SAFE.r - 310, touch ? GAME_H - 98 * KW - 10 : GAME_H - 130).setDepth(10).setScale(KW);
+    // ---- weapon + grenades (top-right, left of the menu button)
+    const wpW = 282;
+    const wpH = 72;
+    const wp = scene.add.container(SCREEN_W - 12 - SAFE.r - 52 * K - 8 - wpW * K, 10).setDepth(10).setScale(K);
     this.wpnGfx = scene.add.graphics();
     this.altGfx = scene.add.graphics();
     this.wbars = scene.add.graphics();
-    this.wpnName = ui(scene, 16, 6, '', 14, COLORS.textDim);
-    this.ammoText = ui(scene, 220, 6, '0', 56, '#d8ffe0', { origin: [1, 0] });
-    this.reserveText = ui(scene, 224, 30, '/ 0', 26, hex(COLORS.neonDim));
-    this.reloadText = display(scene, 16, 40, '', 15, hex(COLORS.amber));
-    this.nadeTexts = [16, 98, 160].map((x) => ui(scene, x, 70, '', 14, '#d8ffe0'));
+    this.wpnName = ui(scene, 12, 3, '', 11, '#cfe0d4');
+    this.ammoText = ui(scene, 232, 0, '0', 40, '#ffffff', { origin: [1, 0] });
+    this.reserveText = ui(scene, 236, 20, '/ 0', 17, '#cfe0d4');
+    this.reloadText = display(scene, 12, 38, '', 12, hex(COLORS.amber));
+    this.nadeTexts = [12, 92, 164].map((x) => ui(scene, x, 52, '', 12, '#ffffff'));
     wp.add([
-      panel(scene, 0, 0, 320, 98, { alpha: 0.7, cut: 10 }), this.wpnGfx, this.altGfx, this.wbars,
+      hudPanel(scene, 0, 0, wpW, wpH), this.wpnGfx, this.altGfx, this.wbars,
       this.wpnName, this.ammoText, this.reserveText, this.reloadText, ...this.nadeTexts,
-      ui(scene, 270, 72, '[E]', 12, COLORS.textDim),
+      ui(scene, 262, 54, '[E]', 10, '#9fb5a6'),
     ]);
 
-    this.kdText = ui(scene, SCREEN_W - 24 - SAFE.r, 24, '', touch ? 20 : 16, '#d8ffe0', { origin: [1, 0] }).setDepth(11);
+    this.kdText = ui(scene, SCREEN_W - 24 - SAFE.r, 24, '', 16, '#d8ffe0', { origin: [1, 0] }).setVisible(false);
 
     // ---- overlays
     this.fx = scene.add.graphics().setDepth(40);
@@ -137,11 +139,16 @@ export class HUD {
     const hbg = scene.add.rectangle(SCREEN_W / 2, GAME_H / 2 + 120, Math.min(1060, ht.width + 40), ht.height + 22, 0x000000, 0.6);
     this.hint = scene.add.container(0, 0, [hbg, ht]).setDepth(48);
 
-    // pause button
-    const pause = scene.add.text(SCREEN_W - 24 - SAFE.r, touch ? 56 : 62, '❚❚ PAUSE', { fontFamily: FONT_DISPLAY, fontSize: touch ? '20px' : '13px', fontStyle: '700', color: '#7fa889' }).setOrigin(1, 0).setDepth(12).setInteractive({ useHandCursor: true });
+    // menu / pause button (round, top-right like Mini Militia)
+    const pr = 22 * K;
+    const pcx = SCREEN_W - 12 - SAFE.r - pr;
+    const pcy = 10 + pr;
+    const pg = scene.add.graphics().setDepth(12);
+    pg.fillStyle(0x000000, 0.42).fillCircle(0, 0, pr).lineStyle(2, 0xffffff, 0.75).strokeCircle(0, 0, pr);
+    pg.fillStyle(0xffffff, 0.9).fillRoundedRect(-pr * 0.42, -pr * 0.36, pr * 0.84, pr * 0.14, 2).fillRoundedRect(-pr * 0.42, -pr * 0.07, pr * 0.84, pr * 0.14, 2).fillRoundedRect(-pr * 0.42, pr * 0.22, pr * 0.84, pr * 0.14, 2);
+    pg.setPosition(pcx, pcy);
+    const pause = scene.add.circle(pcx, pcy, pr * 1.3, 0xffffff, 0.001).setDepth(13).setInteractive({ useHandCursor: true });
     pause.on('pointerdown', () => game.setPaused(!game.paused));
-    pause.on('pointerover', () => pause.setColor('#39ff14'));
-    pause.on('pointerout', () => pause.setColor('#7fa889'));
 
     // game events
     const ev = game.events;
@@ -248,7 +255,7 @@ export class HUD {
     const right = s.teamPlay ? String(s.teamScores[s.myTeam === 0 ? 1 : 0]) : String(s.leader);
     if (left !== this.cache.sl) { this.cache.sl = left; this.scoreL.setText(left).setColor(s.teamPlay ? teamHex(s.myTeam) : '#39ff14'); }
     if (right !== this.cache.sr) { this.cache.sr = right; this.scoreR.setText(right).setColor(s.teamPlay ? teamHex(s.myTeam === 0 ? 1 : 0) : '#d8ffe0'); }
-    const sub = s.teamPlay ? `TEAM DEATHMATCH · FIRST TO ${s.scoreLimit}` : `YOU  ·  LEADER   ·   FIRST TO ${s.scoreLimit}`;
+    const sub = `K ${s.kills}  D ${s.deaths}   ·   ` + (s.teamPlay ? `TEAM DM · FIRST TO ${s.scoreLimit}` : `FIRST TO ${s.scoreLimit}`);
     if (sub !== this.cache.sub) { this.cache.sub = sub; this.scoreSub.setText(sub); }
     const kd = `K ${s.kills}   D ${s.deaths}`;
     if (kd !== this.cache.kd) { this.cache.kd = kd; this.kdText.setText(kd); }
@@ -256,17 +263,15 @@ export class HUD {
     // vitals
     const b = this.bars;
     b.clear();
-    const bx = 12;
-    const by = 40;
     const hpFrac = Phaser.Math.Clamp(s.hp / 100, 0, 1);
-    const hpCol = hpFrac > 0.5 ? COLORS.neon : hpFrac > 0.25 ? COLORS.amber : COLORS.danger;
-    b.fillStyle(0x0a110c, 1).fillRect(bx, by, 290, 14);
-    b.fillStyle(hpCol, 1).fillRect(bx + 1, by + 1, 288 * hpFrac, 12);
-    b.fillStyle(0xffffff, 0.15).fillRect(bx + 1, by + 1, 288 * hpFrac, 4);
-    b.fillStyle(0x0a110c, 1).fillRect(bx + 56, by + 20, 234, 8);
-    b.fillStyle(COLORS.ice, 1).fillRect(bx + 57, by + 21, 232 * Phaser.Math.Clamp(s.armor / 50, 0, 1), 6);
-    b.fillStyle(0x0a110c, 1).fillRect(bx + 56, by + 38, 234, 8);
-    b.fillStyle(COLORS.amber, 1).fillRect(bx + 57, by + 39, 232, 6); // jetpack fuel is unlimited
+    const bx = 92;
+    b.fillStyle(0x000000, 0.5).fillRoundedRect(bx, 6, 136, 12, 6);
+    b.fillStyle(hpFrac > 0.3 ? 0xd45be0 : 0xff4d4d, 1).fillRoundedRect(bx + 1, 7, Math.max(0.01, 134 * hpFrac), 10, 5);
+    b.fillStyle(0xffffff, 0.25).fillRoundedRect(bx + 3, 8, Math.max(0.01, 130 * hpFrac), 3, 2);
+    b.fillStyle(0x000000, 0.5).fillRoundedRect(bx, 24, 136, 7, 3);
+    b.fillStyle(0x4fd8ff, 1).fillRoundedRect(bx + 1, 25, Math.max(0.01, 134 * Phaser.Math.Clamp(s.armor / 50, 0, 1)), 5, 2);
+    b.fillStyle(0x000000, 0.5).fillRoundedRect(bx, 38, 136, 7, 3);
+    b.fillStyle(0x4aa3ff, 1).fillRoundedRect(bx + 1, 39, 134, 5, 2); // jetpack fuel is unlimited
     const hp = String(Math.ceil(s.hp));
     if (hp !== this.cache.hp) { this.cache.hp = hp; this.hpText.setText(hp); }
 
@@ -274,16 +279,16 @@ export class HUD {
     if (s.weaponId !== this.lastWeapon) {
       this.lastWeapon = s.weaponId;
       this.wpnGfx.clear();
-      drawWeapon(this.wpnGfx, s.weaponId, 46, 36, 1.3);
+      drawWeapon(this.wpnGfx, s.weaponId, 24, 36, 0.85);
       this.wpnName.setText(s.weaponName);
     }
     if (s.otherId !== this.lastAlt) {
       this.lastAlt = s.otherId;
       this.altGfx.clear();
-      drawWeapon(this.altGfx, s.otherId, 226, 84, 0.5);
+      drawWeapon(this.altGfx, s.otherId, 222, 62, 0.3);
     }
     const ammo = String(s.ammo);
-    if (ammo !== this.cache.ammo) { this.cache.ammo = ammo; this.ammoText.setText(ammo).setColor(s.ammo === 0 ? '#ff5a4a' : '#d8ffe0'); }
+    if (ammo !== this.cache.ammo) { this.cache.ammo = ammo; this.ammoText.setText(ammo).setColor(s.ammo === 0 ? '#ff6a5a' : '#ffffff'); }
     const res = s.reserve === Infinity ? '/ ∞' : `/ ${s.reserve}`;
     if (res !== this.cache.reserve) { this.cache.reserve = res; this.reserveText.setText(res); }
     const nadeKey = NADE_ORDER.map((k2) => s.nades[k2]).join(',') + s.nadeSel;
@@ -293,7 +298,7 @@ export class HUD {
         const sel = k2 === s.nadeSel;
         this.nadeTexts[i]
           .setText(`${sel ? '▸ ' : ''}${NADES[k2].name} ${s.nades[k2]}`)
-          .setColor(s.nades[k2] <= 0 ? '#4d6655' : sel ? hex(NADES[k2].color) : '#9fbfa8')
+          .setColor(s.nades[k2] <= 0 ? '#6f8577' : sel ? hex(NADES[k2].color) : '#d5e3d9')
           .setFontStyle(sel ? '700' : '500');
       });
     }
@@ -301,8 +306,8 @@ export class HUD {
     wb.clear();
     if (s.reload > 0) {
       this.reloadText.setText('RELOADING');
-      wb.fillStyle(0x0a110c, 1).fillRect(16, 62, 200, 6);
-      wb.fillStyle(COLORS.amber, 1).fillRect(16, 62, 200 * s.reload, 6);
+      wb.fillStyle(0x000000, 0.5).fillRect(12, 66, 200, 4);
+      wb.fillStyle(COLORS.amber, 1).fillRect(12, 66, 200 * s.reload, 4);
     } else {
       this.reloadText.setText('');
     }
@@ -318,7 +323,7 @@ export class HUD {
     }
 
     // kill feed
-    let y = this.k > 1 ? 130 : 108;
+    let y = 10 + 72 * this.k + 28;
     for (let i = this.feed.length - 1; i >= 0; i--) {
       const f = this.feed[i];
       if (now - f.born > 6000) {

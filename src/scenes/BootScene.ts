@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { PHYS } from '../config';
+import { invite } from '../systems/Invite';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -22,7 +23,13 @@ export class BootScene extends Phaser.Scene {
     const timeout = new Promise((r) => setTimeout(r, 2500));
     void Promise.race([ready, timeout]).then(() => {
       document.getElementById('boot')?.classList.add('hide');
-      this.scene.start('GameSelect');
+      if (invite.room) {
+        const code = invite.room;
+        invite.room = '';
+        this.scene.start(invite.game === 'cricket' ? 'CricketLobby' : 'Lobby', { join: code });
+      } else {
+        this.scene.start('GameSelect');
+      }
     });
   }
 }

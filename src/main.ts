@@ -21,6 +21,7 @@ import { SettingsScene } from './scenes/SettingsScene';
 import { audio } from './systems/AudioManager';
 import { installAutoFullscreen, isTouchDevice } from './systems/Fullscreen';
 import { net } from './systems/MultiplayerManager';
+import { readInviteFromUrl } from './systems/Invite';
 import { computeScreenW, installResizeHandler, measureSafeInsets } from './systems/Viewport';
 
 // Render every Text object at 2x for crisp typography on high-DPI screens.
@@ -31,6 +32,11 @@ const baseText = factory.text;
 factory.text = function (this: unknown, x, y, text, style) {
   return baseText.call(this, x, y, text, { resolution: 2, ...style });
 };
+
+// a friend opened a shared room link (?room=ABCD&g=cricket)
+readInviteFromUrl();
+// wake the (possibly sleeping) multiplayer server in the background while the player picks a game
+net.warmUp();
 
 // fill the whole screen: canvas width follows the real aspect ratio (height stays 720)
 measureSafeInsets();

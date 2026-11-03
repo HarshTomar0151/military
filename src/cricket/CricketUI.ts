@@ -21,7 +21,7 @@ export class Choice extends Phaser.GameObjects.Container {
   private selected = false;
   private enabled = true;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, private bw: number, private bh: number, text: string, sub: string, onPress: () => void, private accent = COLORS.neon) {
+  constructor(scene: Phaser.Scene, x: number, y: number, private bw: number, private bh: number, text: string, sub: string, onPress: () => void, private accent = COLORS.neon, private base = 0x0d1610) {
     super(scene, x, y);
     this.bg = scene.add.graphics();
     this.label = scene.add.text(0, sub ? -8 : 0, text, { fontFamily: FONT_DISPLAY, fontSize: '15px', fontStyle: '700', color: '#d8ffe0' }).setOrigin(0.5);
@@ -60,8 +60,8 @@ export class Choice extends Phaser.GameObjects.Container {
     const g = this.bg;
     g.clear();
     const pts = chamfer(-this.bw / 2, -this.bh / 2, this.bw, this.bh, 8);
-    g.fillStyle(this.selected ? this.accent : 0x0d1610, this.selected ? 0.9 : 0.88).fillPoints(pts, true);
-    g.lineStyle(this.selected ? 3 : 1.5, this.selected ? 0xffffff : COLORS.neonDim, this.selected ? 0.5 : 1).strokePoints(pts, true);
+    g.fillStyle(this.selected ? this.accent : this.base, this.selected ? 0.95 : 0.88).fillPoints(pts, true);
+    g.lineStyle(this.selected ? 3 : 1.5, 0xffffff, this.selected ? 0.7 : 0.35).strokePoints(pts, true);
     this.label.setColor(this.selected ? '#041006' : '#d8ffe0');
     this.subText?.setColor(this.selected ? '#0b3a14' : '#7fa889');
   }
@@ -116,64 +116,89 @@ const BALL_COLOR: Record<string, number> = { '0': 0x59666a, '1': 0xdfe6e9, '2': 
 
 export class Scoreboard {
   private c: Phaser.GameObjects.Container;
-  private names: [Phaser.GameObjects.Text, Phaser.GameObjects.Text];
-  private scores: [Phaser.GameObjects.Text, Phaser.GameObjects.Text];
-  private mid: Phaser.GameObjects.Text;
-  private sub: Phaser.GameObjects.Text;
+  private av: Phaser.GameObjects.Graphics;
+  private initials: Phaser.GameObjects.Text[];
+  private names: Phaser.GameObjects.Text[];
+  private scores: Phaser.GameObjects.Text[];
+  private runs: Phaser.GameObjects.Text;
+  private target: Phaser.GameObjects.Text;
+  private overs: Phaser.GameObjects.Text;
+  private chase: Phaser.GameObjects.Text;
   private balls: Phaser.GameObjects.Graphics;
-  private role: Phaser.GameObjects.Text;
-  private hilite: Phaser.GameObjects.Graphics;
   private ballTexts: Phaser.GameObjects.Text[] = [];
 
   constructor(private scene: Phaser.Scene, private k = 1) {
-    this.c = scene.add.container(GAME_W / 2, 10).setDepth(6000).setScale(k);
-    this.hilite = scene.add.graphics();
-    const mk = (x: number, y: number, size: number, color = '#d8ffe0', o: [number, number] = [0.5, 0]): Phaser.GameObjects.Text =>
-      scene.add.text(x, y, '', { fontFamily: FONT_UI, fontSize: `${size}px`, fontStyle: '700', color }).setOrigin(...o);
-    this.names = [mk(-250, 8, 17, hex(TEAM_COLORS[0])), mk(250, 8, 17, hex(TEAM_COLORS[1]))];
-    this.scores = [mk(-250, 28, 44), mk(250, 28, 44)];
-    this.mid = mk(0, 8, 24, '#ffffff');
-    this.sub = mk(0, 40, 16, hex(COLORS.amber));
+    this.c = scene.add.container(GAME_W / 2, 8).setDepth(6000).setScale(k);
+    const bg = scene.add.graphics();
+    // centre scoreboard: TOTAL RUNS | TARGET
+    bg.fillStyle(0x0b2a63, 0.96).fillRoundedRect(-150, 0, 300, 64, 12);
+    bg.lineStyle(2, 0xffffff, 0.5).strokeRoundedRect(-150, 0, 300, 64, 12);
+    bg.lineStyle(1, 0xffffff, 0.25).lineBetween(0, 10, 0, 54);
+    bg.fillStyle(0x0b2a63, 0.92).fillRoundedRect(-78, 68, 156, 22, 10);
+    bg.lineStyle(1.5, 0xffffff, 0.35).strokeRoundedRect(-78, 68, 156, 22, 10);
+    // name plates under the avatars
+    for (const x of [-232, 232]) {
+      bg.fillStyle(0x0b4aa6, 0.95).fillRoundedRect(x - 96, 70, 192, 24, 8);
+      bg.lineStyle(1.5, 0xffffff, 0.45).strokeRoundedRect(x - 96, 70, 192, 24, 8);
+    }
+    const mk = (x: number, y: number, size: number, color: string, o: [number, number] = [0.5, 0], font = FONT_UI): Phaser.GameObjects.Text =>
+      scene.add.text(x, y, '', { fontFamily: font, fontSize: `${size}px`, fontStyle: '700', color }).setOrigin(...o);
+    const label = (x: number, t: string): Phaser.GameObjects.Text => mk(x, 5, 11, '#ffc233').setText(t);
+    this.runs = mk(-75, 17, 34, '#ffffff');
+    this.target = mk(75, 17, 34, '#ffffff');
+    this.overs = mk(0, 71, 13, '#ffffff');
+    this.chase = mk(0, 97, 15, '#ffd166').setStroke('#000000', 3);
+    this.av = scene.add.graphics();
+    this.initials = [mk(-232, 34, 28, '#ffffff', [0.5, 0.5], FONT_DISPLAY), mk(232, 34, 28, '#ffffff', [0.5, 0.5], FONT_DISPLAY)];
+    this.names = [mk(-232, 74, 14, '#ffffff'), mk(232, 74, 14, '#ffffff')];
+    this.scores = [mk(-232, 97, 20, '#ffffff').setStroke('#000000', 3), mk(232, 97, 20, '#ffffff').setStroke('#000000', 3)];
     this.balls = scene.add.graphics();
-    this.role = mk(0, 0, 14, '#041006', [0.5, 0.5]);
-    this.ballTexts = Array.from({ length: 8 }, () => mk(0, 74, 12, '#fff', [0.5, 0.5]));
-    this.c.add([...this.ballTexts, panel(scene, -350, 0, 700, 90, { alpha: 0.78, cut: 12 }), this.hilite, ...this.names, ...this.scores, this.mid, this.sub, this.balls, this.role]);
+    this.ballTexts = Array.from({ length: 8 }, () => mk(0, 126, 12, '#fff', [0.5, 0.5]));
+    this.c.add([
+      bg, label(-75, 'TOTAL RUNS'), label(75, 'TARGET'), this.runs, this.target, this.overs, this.chase, this.av,
+      ...this.initials, ...this.names, ...this.scores, this.balls, ...this.ballTexts,
+    ]);
   }
 
   update(s: CricketState, myIdx: number): void {
     const bat = s.batting;
-    this.hilite.clear();
-    this.hilite.fillStyle(TEAM_COLORS[bat], 0.18).fillRect(bat === 0 ? -346 : 150, 3, 196, 84);
-    for (let i = 0; i < 2; i++) {
-      const sc = s.score[i];
-      const played = i === s.batting || s.innings === 2;
-      this.names[i].setText(`${s.names[i]}${i === myIdx ? ' (YOU)' : ''}${i === bat ? '  ●' : ''}`);
-      this.scores[i].setText(played ? `${sc.runs}/${sc.wickets}` : '—');
-    }
     const sc = s.score[bat];
     const maxBalls = s.cfg.overs * 6;
-    this.mid.setText(`${oversText(sc.balls)} / ${s.cfg.overs}`);
+    this.runs.setText(`${sc.runs}/${sc.wickets}`);
+    this.target.setText(s.target !== null ? String(s.target) : '—');
+    this.overs.setText(`${oversText(sc.balls)} / ${s.cfg.overs} OVERS`);
     if (s.innings === 2 && s.target !== null) {
       const need = s.target - sc.runs;
-      this.sub.setText(need > 0 ? `NEED ${need} OFF ${maxBalls - sc.balls}` : 'TARGET REACHED').setColor(hex(COLORS.amber));
+      this.chase.setText(need > 0 ? `NEED ${need} OFF ${maxBalls - sc.balls} BALLS` : 'TARGET REACHED');
     } else {
-      this.sub.setText(`1ST INNINGS · ${s.cfg.wickets} WKTS`).setColor('#7fa889');
+      this.chase.setText('1ST INNINGS');
+    }
+    const g = this.av;
+    g.clear();
+    for (let i = 0; i < 2; i++) {
+      const x = i === 0 ? -232 : 232;
+      if (i === bat) g.lineStyle(4, 0xffc233, 1).strokeCircle(x, 34, 37);
+      g.fillStyle(TEAM_COLORS[i], 1).fillCircle(x, 34, 31);
+      g.lineStyle(3, 0xffffff, 0.95).strokeCircle(x, 34, 31);
+      this.initials[i].setText((s.names[i][0] ?? '?').toUpperCase());
+      this.names[i].setText(`${s.names[i]}${i === myIdx ? ' (YOU)' : ''}`);
+      const played = i === s.batting || s.innings === 2;
+      this.scores[i].setText(played ? `${s.score[i].runs}/${s.score[i].wickets}` : '');
     }
     // recent balls
-    const g = this.balls;
-    g.clear();
+    const bg = this.balls;
+    bg.clear();
     const list = s.recent.slice(-8);
     const startX = -((list.length - 1) * 22) / 2;
     list.forEach((b, i) => {
-      g.fillStyle(BALL_COLOR[b] ?? 0xdfe6e9, 1).fillCircle(startX + i * 22, 74, 8);
+      bg.fillStyle(BALL_COLOR[b] ?? 0xdfe6e9, 1).fillCircle(startX + i * 22, 126, 8);
     });
     this.ballTexts.forEach((t, i) => {
       const b = list[i];
       t.setVisible(b !== undefined);
       if (b === undefined) return;
-      t.setPosition(startX + i * 22, 74).setText(b === 'Wd' ? 'w' : b === '0' ? '•' : b).setColor(b === '1' || b === '2' || b === '3' || b === 'Wd' ? '#111111' : '#ffffff');
+      t.setPosition(startX + i * 22, 126).setText(b === 'Wd' ? 'w' : b === '0' ? '•' : b).setColor(b === '1' || b === '2' || b === '3' || b === 'Wd' ? '#111111' : '#ffffff');
     });
-    this.role.setText('');
   }
 }
 
@@ -213,13 +238,13 @@ export class CricketControls {
     this.bowlGroup = scene.add.container(0, 0).setDepth(6000);
     const kinds: [DeliveryKind, string, string][] = [['fast', 'FAST', '1'], ['medium', 'MEDIUM', '2'], ['spin', 'SPIN', '3'], ['yorker', 'YORKER', '4']];
     kinds.forEach(([id, name, key], i) => {
-      const b = new Choice(scene, 24 + padL + 50 * k + i * (100 * k + 6), y1, 98 * k, 54 * k, name, `[${key}]`, () => this.setKind(id));
+      const b = new Choice(scene, 24 + padL + 50 * k + i * (100 * k + 6), y1, 98 * k, 54 * k, name, `[${key}]`, () => this.setKind(id), 0xffc233, 0x0e2d66);
       this.kindBtns[id] = b;
       this.bowlGroup.add(b);
     });
     const lines: [Line, string][] = [['leg', 'LEG'], ['middle', 'MIDDLE'], ['off', 'OFF']];
     lines.forEach(([id, name], i) => {
-      const b = new Choice(scene, 24 + padL + 66 * k + i * (136 * k + 6), y2, 134 * k, 50 * k, name, '', () => this.setLine(id));
+      const b = new Choice(scene, 24 + padL + 66 * k + i * (136 * k + 6), y2, 134 * k, 50 * k, name, '', () => this.setLine(id), 0xffc233, 0x0e2d66);
       this.lineBtns[id] = b;
       this.bowlGroup.add(b);
     });
@@ -229,13 +254,13 @@ export class CricketControls {
     this.batGroup = scene.add.container(0, 0).setDepth(6000);
     const styles: [ShotStyle, string, string][] = [['defend', 'DEFEND', '1'], ['drive', 'DRIVE', '2'], ['loft', 'LOFT', '3']];
     styles.forEach(([id, name, key], i) => {
-      const b = new Choice(scene, 24 + padL + 66 * k + i * (136 * k + 6), y1, 134 * k, 54 * k, name, `[${key}]`, () => this.setStyle(id));
+      const b = new Choice(scene, 24 + padL + 66 * k + i * (136 * k + 6), y1, 134 * k, 54 * k, name, `[${key}]`, () => this.setStyle(id), 0xffc233, 0x0e2d66);
       this.styleBtns[id] = b;
       this.batGroup.add(b);
     });
     const dirs: [ShotDir, string, string][] = [['leg', 'LEG SIDE', '←'], ['straight', 'STRAIGHT', '↑'], ['off', 'OFF SIDE', '→']];
     dirs.forEach(([id, name, key], i) => {
-      const b = new Choice(scene, 24 + padL + 66 * k + i * (136 * k + 6), y2, 134 * k, 50 * k, name, key, () => this.setDir(id), COLORS.ice);
+      const b = new Choice(scene, 24 + padL + 66 * k + i * (136 * k + 6), y2, 134 * k, 50 * k, name, key, () => this.setDir(id), 0x35d6ff, 0x0e2d66);
       this.dirBtns[id] = b;
       this.batGroup.add(b);
     });
@@ -337,8 +362,8 @@ export class Banners {
   constructor(private scene: Phaser.Scene) {
     this.head = scene.add.text(GAME_W / 2, 300, '', { fontFamily: FONT_DISPLAY, fontSize: '92px', fontStyle: '900', color: '#ffffff' }).setOrigin(0.5).setStroke('#000', 10).setDepth(6500).setAlpha(0);
     this.sub = scene.add.text(GAME_W / 2, 368, '', { fontFamily: FONT_UI, fontSize: '28px', fontStyle: '700', color: '#ffffff' }).setOrigin(0.5).setStroke('#000', 6).setDepth(6500).setAlpha(0);
-    this.hintBg = scene.add.rectangle(GAME_W / 2, 142, 10, 36, 0x000000, 0.55).setDepth(6400).setAlpha(0);
-    this.hint = scene.add.text(GAME_W / 2, 142, '', { fontFamily: FONT_UI, fontSize: '22px', fontStyle: '700', color: '#d8ffe0' }).setOrigin(0.5).setDepth(6401).setAlpha(0);
+    this.hintBg = scene.add.rectangle(GAME_W / 2, 176, 10, 36, 0x000000, 0.55).setDepth(6400).setAlpha(0);
+    this.hint = scene.add.text(GAME_W / 2, 176, '', { fontFamily: FONT_UI, fontSize: '22px', fontStyle: '700', color: '#d8ffe0' }).setOrigin(0.5).setDepth(6401).setAlpha(0);
   }
 
   showResult(head: string, sub: string, color: string, ms = 2200): void {

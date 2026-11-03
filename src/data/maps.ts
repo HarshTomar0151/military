@@ -89,8 +89,8 @@ const military = build(
   'Concrete bunkers and steel catwalks under a searchlight sky.',
   'military',
   {
-    skyTop: 0x050a10, skyBottom: 0x1b2d2e, far: 0x0d1a1c, mid: 0x13262a, fog: 0x2a4a4a,
-    ground: 0x2b3430, groundTop: 0x5d6b5f, platform: 0x39433d, platformTop: 0x7b8a7c, edge: 0x141a17, accent: 0xffc020,
+    skyTop: 0x4f8fd0, skyBottom: 0xcfe6f6, far: 0x8aa0b0, mid: 0x6d8798, fog: 0xeaf4fb,
+    ground: 0x5c6b58, groundTop: 0x8fb07a, platform: 0x6e7c72, platformTop: 0xaec0b0, edge: 0x23302a, accent: 0xffc020,
   },
   {
     half: [
@@ -116,7 +116,7 @@ const desert = build(
   'Open dunes, towering mesas and a scorched sky.',
   'desert',
   {
-    skyTop: 0x35223b, skyBottom: 0xf0a458, far: 0x9a5a48, mid: 0xb9744f, fog: 0xf6c58a,
+    skyTop: 0x4f9be0, skyBottom: 0xfde6bd, far: 0xd9a066, mid: 0xc98750, fog: 0xfbe3b8,
     ground: 0xa6713f, groundTop: 0xe0b074, platform: 0x9b6a45, platformTop: 0xd9a76b, edge: 0x4a2c1a, accent: 0xff7a2a,
   },
   {
@@ -142,8 +142,8 @@ const jungle = build(
   'Giant trunks, vine-draped branches and glowing fog.',
   'jungle',
   {
-    skyTop: 0x04120d, skyBottom: 0x1d4a30, far: 0x0b2a1a, mid: 0x123d26, fog: 0x3a8a5a,
-    ground: 0x2a2418, groundTop: 0x3f8a2e, platform: 0x4b3822, platformTop: 0x4fa23a, edge: 0x1a130b, accent: 0xa8ff5a,
+    skyTop: 0x4aa8e0, skyBottom: 0xdaf3d2, far: 0x3d9a5c, mid: 0x2c7d46, fog: 0xbff0c8,
+    ground: 0x3a3220, groundTop: 0x5cb43c, platform: 0x6b4d2c, platformTop: 0x66bb4c, edge: 0x1a130b, accent: 0xa8ff5a,
   },
   {
     half: [

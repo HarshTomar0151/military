@@ -32,6 +32,9 @@ Grenades: **Frag** (explosion), **Gas** (slowing + damaging cloud), **Poison** (
 
 Mobile (landscape): floating move stick, aim stick (auto-fire at the rim, optional), FIRE / JUMP / JET / NADE / TYPE / RLD / SWAP buttons (haptic feedback, smoothed sticks, bigger HUD and closer camera). Push the move stick up to use the jetpack. Touch mode is *Auto* (coarse-pointer devices) and can be forced in Settings.
 
+## Playing with friends
+Create a room (JETFRONT or Cricket) and share the **room code** or the **invite link** (COPY CODE / SHARE LINK in the room screen). A friend can open the link (`?room=ABCD&g=cricket`) or press **JOIN BY CODE** in the lobby. Free hosting (Render) sleeps when idle: the game wakes the server in the background on start and the lobby connects by itself (shows "WAKING UP THE SERVER…"). To keep it awake, ping the server URL every 5 minutes with a free monitor such as UptimeRobot.
+
 ## Game modes
 - **Practice** – Deathmatch or Team Deathmatch vs AI bots (1–7, easy/normal/hard).
 - **Multiplayer** – create/join rooms (up to 8): Deathmatch or Team Deathmatch; host starts the match.

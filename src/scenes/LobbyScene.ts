@@ -4,6 +4,7 @@ import { COLORS, GAME_H, GAME_W, hex } from '../config';
 import { MAP_ORDER, MAPS } from '../data/maps';
 import { net, type NetStatus } from '../systems/MultiplayerManager';
 import { store } from '../systems/Storage';
+import { roomCodeCard } from '../ui/RoomCode';
 import { backButton, button, createBackdrop, display, fadeTo, panel, screenTitle, selector, ui } from '../ui/theme';
 import type { GameConfig } from './GameScene';
 
@@ -19,8 +20,14 @@ export class LobbyScene extends Phaser.Scene {
   private error = '';
   private starting = false;
 
+  private joinCode = '';
+
   constructor() {
     super('Lobby');
+  }
+
+  init(data: { join?: string }): void {
+    this.joinCode = data?.join ?? '';
   }
 
   create(): void {
@@ -35,7 +42,7 @@ export class LobbyScene extends Phaser.Scene {
     this.dot = this.add.circle(GAME_W - 220, 64, 6, 0xff3b3b);
     this.status = ui(this, GAME_W - 206, 64, '', 16, '#d8ffe0', { origin: [0, 0.5] });
 
-    net.connect();
+    net.ensureConnected();
     net.on('status', this.onStatus, this);
     net.on('room', this.onRoom, this);
     net.on('start', this.onStart, this);
@@ -53,14 +60,31 @@ export class LobbyScene extends Phaser.Scene {
 
   private onStatus = (s: NetStatus): void => {
     const map: Record<NetStatus, [string, number]> = {
-      idle: ['IDLE', 0x7fa889], connecting: ['CONNECTING…', COLORS.amber], online: ['ONLINE', COLORS.neon], offline: ['SERVER OFFLINE', 0xff3b3b],
+      idle: ['IDLE', 0x7fa889], connecting: [net.waking ? 'WAKING UP SERVER…' : 'CONNECTING…', COLORS.amber], online: ['ONLINE', COLORS.neon], offline: ['SERVER OFFLINE', 0xff3b3b],
     };
     const [text, color] = map[s];
     this.status.setText(text).setColor(hex(color));
     this.dot.setFillStyle(color);
-    if (s === 'online') void this.refresh();
+    if (s === 'online') {
+      void this.refresh();
+      void this.autoJoin();
+    }
     this.render();
   };
+
+  /** Opened from a shared invite link: join that room as soon as we are connected. */
+  private async autoJoin(): Promise<void> {
+    if (!this.joinCode || net.room) return;
+    const code = this.joinCode;
+    this.joinCode = '';
+    await this.join(code);
+  }
+
+  private async joinByCode(): Promise<void> {
+    const { promptText } = await import('../systems/DomPrompt');
+    const v = await promptText('ENTER ROOM CODE', '', 6);
+    if (v) await this.join(v.trim().toUpperCase());
+  }
 
   private onRoom = (): void => this.render();
 
@@ -94,12 +118,13 @@ export class LobbyScene extends Phaser.Scene {
   private renderBrowser(): void {
     const online = net.status === 'online';
     this.add_(panel(this, 56, 140, 720, 500, { title: 'OPEN ROOMS' }));
+    this.add_(button(this, 672, 160, 170, 32, 'JOIN BY CODE', () => void this.joinByCode(), { fontSize: 12, disabled: !online }));
     if (!online) {
+      const waking = net.waking || net.status === 'connecting';
       this.add_(
-        display(this, 416, 330, net.status === 'connecting' ? 'CONNECTING TO SERVER…' : 'SERVER OFFLINE', 22, '#ff8a8a', [0.5, 0.5]),
-        ui(this, 416, 380, `Could not reach ${net.serverUrl()}`, 15, COLORS.textDim, { origin: [0.5, 0] }),
-        ui(this, 416, 408, 'Start the server with  npm run dev  (or npm run server)', 15, COLORS.textDim, { origin: [0.5, 0] }),
-        button(this, 416, 480, 220, 46, 'RETRY', () => net.connect(true), { fontSize: 14 }),
+        display(this, 416, 320, waking ? 'WAKING UP THE SERVER…' : 'SERVER OFFLINE', 22, waking ? '#ffd166' : '#ff8a8a', [0.5, 0.5]),
+        ui(this, 416, 366, waking ? `Free hosting sleeps when idle — this can take up to a minute (${net.wakeSeconds}s).\nIt connects by itself, no need to refresh.` : `Could not reach ${net.serverUrl()}`, 15, COLORS.textDim, { origin: [0.5, 0], align: 'center', width: 560 }),
+        button(this, 416, 470, 220, 46, 'RETRY NOW', () => net.retry(), { fontSize: 14 }),
       );
     } else if (this.rooms.length === 0) {
       this.add_(
@@ -182,18 +207,19 @@ export class LobbyScene extends Phaser.Scene {
       );
     });
 
-    this.add_(panel(this, 806, 140, 418, 500, { title: 'MATCH' }));
+    this.add_(panel(this, 806, 140, 418, 500, { title: 'INVITE & START' }));
+    this.add_(roomCodeCard(this, 826, 190, 378, room.id, 'shooter'));
     this.add_(
-      ui(this, 836, 206, isHost ? 'You are the host. Start when everyone has joined.' : 'Waiting for the host to start…', 16, '#d8ffe0', { width: 360 }),
-      ui(this, 836, 262, 'Teams are balanced automatically at start.\nFirst to 20 kills (30 in teams) or 5 minutes.', 15, COLORS.textDim, { width: 360 }),
-      button(this, 1015, 470, 340, 62, 'START MATCH', () => void this.startMatch(), { primary: true, fontSize: 20, disabled: !isHost }),
-      button(this, 1015, 546, 340, 44, 'LEAVE ROOM', () => {
+      ui(this, 836, 356, isHost ? 'You are the host. Start when everyone has joined.' : 'Waiting for the host to start…', 15, '#d8ffe0', { width: 360 }),
+      ui(this, 836, 398, 'Teams are balanced automatically. First to 20 kills (30 in teams) or 5 minutes.', 13, COLORS.textDim, { width: 360 }),
+      button(this, 1015, 496, 340, 56, 'START MATCH', () => void this.startMatch(), { primary: true, fontSize: 20, disabled: !isHost }),
+      button(this, 1015, 562, 340, 40, 'LEAVE ROOM', () => {
         net.leaveRoom();
         this.render();
         void this.refresh();
       }, { danger: true, fontSize: 14 }),
     );
-    if (this.error) this.add_(ui(this, 1015, 600, this.error, 15, '#ff8a8a', { origin: [0.5, 0], width: 360 }));
+    if (this.error) this.add_(ui(this, 1015, 612, this.error, 15, '#ff8a8a', { origin: [0.5, 0], width: 360 }));
   }
 
   private async startMatch(): Promise<void> {

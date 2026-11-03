@@ -67,6 +67,7 @@ export class PlayerView {
     const packKey = k('pack', visor);
     bakeTexture(scene, packKey, -19, -13, 12, 23, (g) => {
       g.fillStyle(0x262b2f, 1).fillRoundedRect(-18, -12, 10, 19, 2);
+      g.lineStyle(1.4, 0x0b0f12, 0.95).strokeRoundedRect(-18, -12, 10, 19, 2);
       g.fillStyle(0x15181b, 1).fillRect(-17, 6, 8, 3);
       g.fillStyle(visor, 0.9).fillRect(-16, -8, 2, 10);
     });
@@ -82,6 +83,7 @@ export class PlayerView {
     for (const c of [dark, armor]) {
       bakeTexture(scene, legKey(c), -4, -1, 11, 20, (g) => {
         g.fillStyle(c, 1).fillRoundedRect(-3, 0, 6, 18, 2);
+        g.lineStyle(1.4, 0x0b0f12, 0.95).strokeRoundedRect(-3, 0, 6, 18, 2);
         g.fillStyle(0x16191c, 1).fillRoundedRect(-3, 13, 9, 5, 2);
       });
     }
@@ -90,6 +92,7 @@ export class PlayerView {
     const torsoKey = k('torso', armor, visor);
     bakeTexture(scene, torsoKey, -10, -11, 20, 21, (g) => {
       g.fillStyle(armor, 1).fillRoundedRect(-9, -10, 18, 19, 3);
+      g.lineStyle(1.4, 0x0b0f12, 0.95).strokeRoundedRect(-9, -10, 18, 19, 3);
       g.fillStyle(light, 1).fillRect(-6, -8, 12, 4);
       g.fillStyle(dark, 1).fillRect(-9, 5, 18, 3);
       g.fillStyle(visor, 0.9).fillRect(2, -2, 5, 2);
@@ -105,6 +108,7 @@ export class PlayerView {
       g.fillStyle(helmet, 1).fillRect(-9, -19, 19, 4);
       g.fillStyle(visor, 0.95).fillRoundedRect(1, -19, 9, 4, 1.5);
       g.fillStyle(0xffffff, 0.35).fillRect(3, -19, 4, 1);
+      g.lineStyle(1.4, 0x0b0f12, 0.95).strokeCircle(0, -18, 9.5);
     });
     const head = partImage(scene, headKey, -10.5, -28.5, 22, 21);
 
@@ -112,6 +116,7 @@ export class PlayerView {
     const armKey = k('arm', armor, skin);
     bakeTexture(scene, armKey, -1, -4, 17, 8, (g) => {
       g.fillStyle(armor, 1).fillRoundedRect(0, -3, 12, 6, 2);
+      g.lineStyle(1.4, 0x0b0f12, 0.95).strokeRoundedRect(0, -3, 12, 6, 2);
       g.fillStyle(skin, 1).fillCircle(12, 0, 3.2);
     });
     const armImg = partImage(scene, armKey, -1, -4, 17, 8);

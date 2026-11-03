@@ -55,6 +55,14 @@ export function panel(
   return c;
 }
 
+/** Slim translucent HUD plate with a white hairline (Mini-Militia style). */
+export function hudPanel(scene: Phaser.Scene, x: number, y: number, w: number, h: number, alpha = 0.42): Phaser.GameObjects.Graphics {
+  const g = scene.add.graphics();
+  g.fillStyle(0x000000, alpha).fillRoundedRect(x, y, w, h, 10);
+  g.lineStyle(1.5, 0xffffff, 0.45).strokeRoundedRect(x, y, w, h, 10);
+  return g;
+}
+
 export interface ButtonOpts {
   primary?: boolean;
   fontSize?: number;

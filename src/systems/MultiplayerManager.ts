@@ -42,6 +42,99 @@ export class MultiplayerManager extends Phaser.Events.EventEmitter {
     return env || window.location.origin;
   }
 
+  // ------------------------------------------------------------ connection
+
+  private warming = false;
+  private ready = false;
+  private warmStart = 0;
+  private watchdog: ReturnType<typeof setInterval> | null = null;
+
+  constructor() {
+    super();
+    // coming back to the tab / app: reconnect right away if the link dropped while we were away
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && this.socket && this.status !== 'online') this.socket.connect();
+    });
+  }
+
+  /** True while we are still waiting for a sleeping (free-tier) server to wake up. */
+  get waking(): boolean {
+    return this.warming && !this.ready;
+  }
+
+  get wakeSeconds(): number {
+    return this.warming ? Math.round((Date.now() - this.warmStart) / 1000) : 0;
+  }
+
+  private sameOrigin(): boolean {
+    try {
+      return new URL(this.serverUrl(), window.location.href).origin === window.location.origin;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Make sure we are (or soon will be) connected. Safe to call repeatedly. */
+  ensureConnected(): void {
+    if (this.status === 'online') return;
+    if (this.sameOrigin() || this.ready) this.connect();
+    else this.warmUp();
+  }
+
+  /**
+   * Free hosting (e.g. Render) puts the server to sleep when idle and needs up to a minute to wake.
+   * Ping it until it answers, then connect — so players never have to refresh the page.
+   */
+  warmUp(): void {
+    if (this.warming) return;
+    this.warming = true;
+    this.ready = false;
+    this.warmStart = Date.now();
+    if (this.status !== 'online') this.setStatus('connecting');
+    if (this.sameOrigin()) {
+      this.warming = false;
+      this.ready = true;
+      this.connect();
+      return;
+    }
+    const url = this.serverUrl().replace(/\/+$/, '');
+    const attempt = async (): Promise<void> => {
+      try {
+        const ctrl = new AbortController();
+        const to = window.setTimeout(() => ctrl.abort(), 9000);
+        const r = await fetch(`${url}/?w=${Date.now()}`, { cache: 'no-store', signal: ctrl.signal });
+        window.clearTimeout(to);
+        const j = (await r.json().catch(() => null)) as { game?: string } | null;
+        if (r.ok && j?.game === 'jetfront') {
+          this.ready = true;
+          this.warming = false;
+          this.emit('warm');
+          if (this.status !== 'online') this.connect(true);
+          return;
+        }
+      } catch {
+        /* still asleep or offline: keep trying */
+      }
+      if (Date.now() - this.warmStart > 150000) {
+        this.warming = false;
+        this.setStatus('offline');
+        return;
+      }
+      window.setTimeout(() => void attempt(), 2500);
+    };
+    void attempt();
+  }
+
+  /** Manual retry from the lobby. */
+  retry(): void {
+    this.ready = false;
+    this.warming = false;
+    this.socket?.removeAllListeners();
+    this.socket?.disconnect();
+    this.socket = null;
+    this.warmUp();
+  }
+
   /** (Re)connect using the currently configured server URL. */
   connect(force = false): void {
     if (this.socket && !force) return;
@@ -49,10 +142,13 @@ export class MultiplayerManager extends Phaser.Events.EventEmitter {
     this.socket?.disconnect();
     this.setStatus('connecting');
     const s: Sock = io(this.serverUrl(), {
-      transports: ['websocket', 'polling'],
-      reconnectionDelay: 800,
-      reconnectionDelayMax: 3000,
-      timeout: 5000,
+      // long-polling first (works through proxies and cold starts), then upgrade to websocket
+      transports: ['polling', 'websocket'],
+      tryAllTransports: true,
+      reconnection: true,
+      reconnectionDelay: 700,
+      reconnectionDelayMax: 2500,
+      timeout: 10000,
     });
     this.socket = s;
     s.on('connect', () => this.setStatus('online'));
@@ -62,6 +158,11 @@ export class MultiplayerManager extends Phaser.Events.EventEmitter {
       this.emit('disconnected');
     });
     s.on('connect_error', () => this.setStatus('offline'));
+    // belt and braces: if Socket.IO ever gives up retrying, kick it again
+    if (this.watchdog) clearInterval(this.watchdog);
+    this.watchdog = setInterval(() => {
+      if (this.status !== 'online' && this.socket && !this.socket.active) this.socket.connect();
+    }, 4000);
 
     s.on('room:update', (r) => {
       this.room = r;
@@ -94,7 +195,7 @@ export class MultiplayerManager extends Phaser.Events.EventEmitter {
     this.emit('status', s);
   }
 
-  private ack<T>(fn: (cb: (res: T) => void) => void, fallback: T, ms = 4000): Promise<T> {
+  private ack<T>(fn: (cb: (res: T) => void) => void, fallback: T, ms = 9000): Promise<T> {
     return new Promise((resolve) => {
       const t = setTimeout(() => resolve(fallback), ms);
       fn((res) => {

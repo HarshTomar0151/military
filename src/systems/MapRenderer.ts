@@ -53,22 +53,17 @@ export class MapRenderer {
     g.fillGradientStyle(t.skyTop, t.skyTop, t.skyBottom, t.skyBottom, 1);
     g.fillRect(-GAME_W * 0.25, -GAME_H * 0.25, GAME_W * 1.5, GAME_H * 1.5);
     const rand = rng(11);
-    if (this.map.style !== 'desert') {
-      for (let i = 0; i < 90; i++) {
-        g.fillStyle(0xffffff, 0.15 + rand() * 0.5).fillRect(rand() * GAME_W * 1.3 - 100, rand() * GAME_H * 0.7, 1.5, 1.5);
-      }
-    }
-    if (this.map.style === 'military') {
-      g.fillStyle(0xdfeaf0, 0.08).fillCircle(1000, 140, 95);
-      g.fillStyle(0xdfeaf0, 0.9).fillCircle(1000, 140, 44);
-      g.fillStyle(0x0b1418, 0.18).fillCircle(985, 128, 14).fillCircle(1015, 156, 9);
-    } else if (this.map.style === 'desert') {
-      g.fillStyle(0xfff0c8, 0.25).fillCircle(880, 330, 190);
-      g.fillStyle(0xffe6a8, 0.5).fillCircle(880, 330, 110);
-      g.fillStyle(0xfffbe8, 1).fillCircle(880, 330, 66);
-    } else {
-      g.fillStyle(0xb8ffd0, 0.08).fillCircle(400, 120, 120);
-      g.fillStyle(0xe6fff0, 0.7).fillCircle(400, 120, 34);
+    // bright daytime sky: sun + soft clouds
+    const sun = this.map.style === 'desert' ? { x: 880, y: 330, r: 66 } : { x: 1040, y: 150, r: 44 };
+    g.fillStyle(0xfff6c8, 0.2).fillCircle(sun.x, sun.y, sun.r * 2.6);
+    g.fillStyle(0xfff3b0, 0.45).fillCircle(sun.x, sun.y, sun.r * 1.6);
+    g.fillStyle(0xfffbe8, 1).fillCircle(sun.x, sun.y, sun.r);
+    for (let i = 0; i < 9; i++) {
+      const cx = rand() * GAME_W * 1.3 - 100;
+      const cy = 40 + rand() * 260;
+      const w = 90 + rand() * 120;
+      g.fillStyle(0xffffff, 0.55);
+      g.fillEllipse(cx, cy, w, w * 0.32).fillEllipse(cx - w * 0.28, cy + w * 0.05, w * 0.6, w * 0.26).fillEllipse(cx + w * 0.3, cy + w * 0.06, w * 0.55, w * 0.24);
     }
   }
 

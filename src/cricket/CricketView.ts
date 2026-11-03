@@ -98,9 +98,15 @@ export class CricketView {
       for (let i = 0; i < bands; i++) {
         const t = i / (bands - 1);
         const c = Phaser.Display.Color.Interpolate.ColorWithColor(
-          new Phaser.Display.Color(8, 18, 38), new Phaser.Display.Color(38, 78, 120), 1, t,
+          new Phaser.Display.Color(72, 150, 222), new Phaser.Display.Color(200, 228, 250), 1, t,
         );
         g.fillStyle(Phaser.Display.Color.GetColor(c.r, c.g, c.b), 1).fillRect(-pad, (i * 190) / bands, GAME_W + 2 * pad, 190 / bands + 1);
+      }
+      // soft clouds
+      for (let i = 0; i < 7; i++) {
+        const cx = -pad + 80 + (i * (GAME_W + 2 * pad - 160)) / 6 + (i % 2) * 40;
+        const cy = 22 + (i % 3) * 26;
+        g.fillStyle(0xffffff, 0.75).fillEllipse(cx, cy, 150, 34).fillEllipse(cx - 40, cy + 6, 90, 26).fillEllipse(cx + 46, cy + 8, 100, 26);
       }
       // stands: tiers with crowd
       let seed = 7;
@@ -111,25 +117,26 @@ export class CricketView {
       const crowd = [0xe84c4c, 0xf5c542, 0x4cc9f0, 0xffffff, 0x9b5de5, 0x38d96b, 0xff8fab];
       for (let row = 0; row < 6; row++) {
         const y = 108 + row * 25;
-        g.fillStyle(row % 2 ? 0x1c2433 : 0x232c3d, 1).fillRect(-pad, y, GAME_W + 2 * pad, 26);
+        g.fillStyle(row % 2 ? 0x55607a : 0x606c86, 1).fillRect(-pad, y, GAME_W + 2 * pad, 26);
         for (let x = -pad + 6; x < GAME_W + pad; x += 9 + Math.floor(rnd() * 3)) {
           g.fillStyle(crowd[Math.floor(rnd() * crowd.length)], 0.9).fillCircle(x, y + 9 + rnd() * 4, 3.2);
           g.fillStyle(0xf0c8a0, 0.9).fillCircle(x, y + 3 + rnd() * 2, 2);
         }
       }
-      g.fillStyle(0x0f1420, 1).fillRect(-pad, 258, GAME_W + 2 * pad, 6);
+      g.fillStyle(0x2d3442, 1).fillRect(-pad, 258, GAME_W + 2 * pad, 6);
       // advertising hoarding
       const ad = [0x39ff14, 0x35a7ff, 0xff7a3c, 0xf5c542, 0x9b5de5];
       for (let x = -Math.ceil(pad / 160) * 160; x < GAME_W + pad; x += 160) {
         g.fillStyle(ad[Math.abs(Math.round(x / 160)) % ad.length], 1).fillRect(x, 262, 158, 18);
         g.fillStyle(0x000000, 0.25).fillRect(x, 262, 158, 3);
+        g.fillStyle(0xffffff, 0.9).fillRect(x + 18, 268, 76, 6).fillRect(x + 104, 268, 34, 6);
       }
       // outfield with mowing stripes (perspective)
       let y = 280;
       let i = 0;
       while (y < GAME_H) {
         const h = 10 + i * 2.6;
-        g.fillStyle(i % 2 ? 0x2b7a3a : 0x338a44, 1).fillRect(-pad, y, GAME_W + 2 * pad, h + 1);
+        g.fillStyle(i % 2 ? 0x3f9a47 : 0x4aa853, 1).fillRect(-pad, y, GAME_W + 2 * pad, h + 1);
         y += h;
         i++;
       }
@@ -151,19 +158,19 @@ export class CricketView {
         g.strokePath();
       }
       // pitch (trapezoid)
-      g.fillStyle(0xcdb57d, 1);
+      g.fillStyle(0xc98c58, 1);
       g.fillPoints(
         [new Phaser.Math.Vector2(614, 282), new Phaser.Math.Vector2(666, 282), new Phaser.Math.Vector2(800, 735), new Phaser.Math.Vector2(480, 735)],
         true,
       );
-      g.fillStyle(0xb99f66, 0.5);
+      g.fillStyle(0xa8703f, 0.5);
       g.fillPoints(
         [new Phaser.Math.Vector2(630, 282), new Phaser.Math.Vector2(650, 282), new Phaser.Math.Vector2(680, 735), new Phaser.Math.Vector2(600, 735)],
         true,
       );
       // creases
       const crease = (yy: number, hw: number): void => {
-        g.lineStyle(3, 0xffffff, 0.85).lineBetween(640 - hw, yy, 640 + hw, yy);
+        g.lineStyle(4, 0xffffff, 0.92).lineBetween(640 - hw, yy, 640 + hw, yy);
       };
       crease(FAR_Y + 6, 40);
       crease(NEAR_Y - 26, 168);
@@ -173,14 +180,13 @@ export class CricketView {
       for (const fx of [70 - pad, GAME_W + pad - 70]) {
         g.fillStyle(0x3a4256, 1).fillRect(fx - 4, 20, 8, 100);
         for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) g.fillStyle(0xfff6d0, 1).fillRect(fx - 24 + c * 12, 6 + r * 11, 9, 8);
-        g.fillStyle(0xfff6d0, 0.07).fillCircle(fx, 30, 90);
       }
     });
     this.scene.add.image(-pad, 0, key).setOrigin(0, 0).setScale(0.5).setDepth(-10);
     // soft vignette to focus the pitch
     const v = this.scene.add.graphics().setDepth(4000);
-    v.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0.55, 0.55, 0, 0).fillRect(-pad, 0, GAME_W + 2 * pad, 90);
-    v.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0, 0, 0.6, 0.6).fillRect(-pad, GAME_H - 190, GAME_W + 2 * pad, 190);
+    v.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0.18, 0.18, 0, 0).fillRect(-pad, 0, GAME_W + 2 * pad, 90);
+    v.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0, 0, 0.32, 0.32).fillRect(-pad, GAME_H - 190, GAME_W + 2 * pad, 190);
   }
 
   private person(key: string, shirt: number, pants: number, cap: number, skin: number, pads: boolean): void {
@@ -241,7 +247,8 @@ export class CricketView {
     this.batterBody = partImage(s, `cr:bat:${batCol}`, -24, -112, 48, 114);
     this.bat = partImage(s, 'cr:willow', -7, -4, 14, 78, 17, -46).setScale(0.7).setAngle(18).setOrigin(0.5, 0.05);
     this.batter = s.add.container(612, 604, [this.batterBody, this.bat]);
-    this.batter.setScale(persp(604) * 0.95).setDepth(604);
+    s.add.ellipse(612, 608, 92, 18, 0x000000, 0.3).setDepth(603);
+    this.batter.setScale(persp(604) * 1.3).setDepth(604);
     this.batterBody.setScale(0.5);
 
     for (const [fx, fy] of FIELD_POS) {

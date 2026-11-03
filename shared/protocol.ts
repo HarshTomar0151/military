@@ -1,4 +1,7 @@
 // Types and constants shared by the browser client and the Node server.
+import type { BatInput, CricketBallPayload, CricketConfig, CricketEndPayload, CricketPhasePayload, CricketResultPayload, CricketStartPayload, Delivery } from './cricket';
+
+export type GameKind = 'shooter' | 'cricket';
 
 export type GameModeId = 'deathmatch' | 'team';
 export type MapId = 'military' | 'desert' | 'jungle';
@@ -12,6 +15,7 @@ export const MATCH_TIME_MS = 5 * 60 * 1000;
 export const SCORE_LIMIT: Record<GameModeId, number> = { deathmatch: 20, team: 30 };
 export const PICKUP_RESPAWN_MS = 20000;
 export const MAX_ROOM_PLAYERS = 8;
+export const CRICKET_ROOM_PLAYERS = 2;
 export const STATE_RATE_HZ = 20;
 
 export interface Appearance {
@@ -40,6 +44,8 @@ export interface PlayerSummary {
 
 export interface RoomInfo {
   id: string;
+  game: GameKind;
+  cricket?: CricketConfig;
   name: string;
   mode: GameModeId;
   mapId: MapId;
@@ -54,6 +60,8 @@ export interface RoomDetail extends RoomInfo {
 }
 
 export interface CreateRoomRequest {
+  game?: GameKind;
+  cricket?: CricketConfig;
   name: string;
   mode: GameModeId;
   mapId: MapId;
@@ -149,6 +157,8 @@ export interface ClientToServerEvents {
   'game:grenade': (g: { x: number; y: number; vx: number; vy: number; k?: string }) => void;
   'game:hit': (h: HitRequest) => void;
   'game:pickup': (p: { idx: number; kind: 'health' | 'armor' | 'ammo' }) => void;
+  'cricket:bowl': (d: Delivery) => void;
+  'cricket:bat': (i: BatInput) => void;
 }
 
 export interface ServerToClientEvents {
@@ -164,4 +174,9 @@ export interface ServerToClientEvents {
   'game:pickupTaken': (p: { idx: number; by: string }) => void;
   'game:left': (p: { id: string }) => void;
   'game:end': (e: EndPayload) => void;
+  'cricket:start': (p: CricketStartPayload) => void;
+  'cricket:phase': (p: CricketPhasePayload) => void;
+  'cricket:ball': (p: CricketBallPayload) => void;
+  'cricket:result': (p: CricketResultPayload) => void;
+  'cricket:end': (p: CricketEndPayload) => void;
 }

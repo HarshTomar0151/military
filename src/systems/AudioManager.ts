@@ -142,6 +142,27 @@ class AudioManager {
         this.hiss(1.1, 3200, 700, 0.55 * v);
         this.tone(160, 60, 0.3, 'sawtooth', 0.12 * v);
         break;
+      case 'bat':
+        this.hiss(0.09, 5200, 600, 0.9 * v);
+        this.tone(240, 70, 0.1, 'square', 0.35 * v);
+        break;
+      case 'swish':
+        this.hiss(0.16, 2400, 500, 0.35 * v);
+        break;
+      case 'bowl':
+        this.hiss(0.22, 1800, 400, 0.25 * v);
+        break;
+      case 'cheer':
+        this.hiss(1.4, 3500, 900, 0.5 * v);
+        this.tone(520, 700, 0.5, 'triangle', 0.08 * v);
+        break;
+      case 'crowd':
+        this.hiss(0.6, 2200, 700, 0.18 * v);
+        break;
+      case 'wicket':
+        this.tone(900, 120, 0.25, 'square', 0.3 * v);
+        this.hiss(0.5, 3000, 300, 0.7 * v);
+        break;
       case 'explosion':
         this.hiss(1.0, 1100, 50, 1.2 * v);
         this.tone(70, 22, 0.7, 'sine', 0.7 * v);

@@ -3,6 +3,16 @@
 export const GAME_W = 1280;
 export const GAME_H = 720;
 
+/** Real canvas width (>= GAME_W). GAME_W stays the width the menus are designed for. */
+export let SCREEN_W = GAME_W;
+export function setScreenWidth(w: number): void {
+  SCREEN_W = w;
+}
+/** Extra space on each side of the 1280-wide design area. */
+export const viewPad = (): number => (SCREEN_W - GAME_W) / 2;
+/** Notch insets in game units (filled in by systems/Viewport). */
+export const SAFE = { l: 0, r: 0 };
+
 export const FONT_DISPLAY = 'Orbitron, "Segoe UI", sans-serif';
 export const FONT_UI = 'Rajdhani, "Segoe UI", sans-serif';
 

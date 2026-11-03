@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { COLORS, FONT_DISPLAY, GAME_H, GAME_W } from '../config';
+import { COLORS, FONT_DISPLAY, GAME_H, GAME_W, SAFE, SCREEN_W } from '../config';
 import { touchState } from '../systems/InputManager';
 import { store } from '../systems/Storage';
 
@@ -65,8 +65,8 @@ export class TouchControls {
     const s = store.settings.touchScale;
     this.alpha = store.settings.touchOpacity;
     touchState.active = true;
-    const L = (x: number): number => x * s;
-    const R = (x: number): number => GAME_W - (GAME_W - x) * s;
+    const L = (x: number): number => x * s + SAFE.l;
+    const R = (x: number): number => SCREEN_W - (GAME_W - x) * s - SAFE.r;
     const B = (y: number): number => GAME_H - (GAME_H - y) * s;
 
     const stick = (hx: number, hy: number, floating: boolean): Stick => ({
@@ -129,9 +129,9 @@ export class TouchControls {
       this.dragStick(this.aim, p);
       return;
     }
-    if (this.move.pointer === -1 && p.x < GAME_W * 0.45 && p.y > GAME_H * 0.2) {
+    if (this.move.pointer === -1 && p.x < SCREEN_W * 0.45 && p.y > GAME_H * 0.2) {
       this.move.pointer = p.id;
-      this.move.cx = Phaser.Math.Clamp(p.x, this.move.r + 10, GAME_W * 0.45);
+      this.move.cx = Phaser.Math.Clamp(p.x, this.move.r + 10, SCREEN_W * 0.45);
       this.move.cy = Phaser.Math.Clamp(p.y, GAME_H * 0.3, GAME_H - this.move.r - 10);
       this.dragStick(this.move, p);
     }

@@ -11,6 +11,7 @@ import type {
   RoomInfo,
   ServerToClientEvents,
 } from '../../shared/protocol';
+import type { BatInput, CricketConfig, Delivery } from '../../shared/cricket';
 import { store } from './Storage';
 
 export type NetStatus = 'idle' | 'connecting' | 'online' | 'offline';
@@ -80,6 +81,11 @@ export class MultiplayerManager extends Phaser.Events.EventEmitter {
     s.on('game:pickupTaken', (p) => this.emit('pickupTaken', p));
     s.on('game:left', (p) => this.emit('left', p));
     s.on('game:end', (p) => this.emit('end', p));
+    s.on('cricket:start', (p) => this.emit('cstart', p));
+    s.on('cricket:phase', (p) => this.emit('cphase', p));
+    s.on('cricket:ball', (p) => this.emit('cball', p));
+    s.on('cricket:result', (p) => this.emit('cresult', p));
+    s.on('cricket:end', (p) => this.emit('cend', p));
   }
 
   private setStatus(s: NetStatus): void {
@@ -120,6 +126,18 @@ export class MultiplayerManager extends Phaser.Events.EventEmitter {
   private adopt(r: Ack<RoomDetail>): Ack<RoomDetail> {
     if (r.ok) this.room = r.data;
     return r;
+  }
+
+  createCricketRoom(name: string, cricket: CricketConfig, player: PlayerProfile): Promise<Ack<RoomDetail>> {
+    return this.createRoom({ game: 'cricket', cricket, name, mode: 'deathmatch', mapId: 'military', player });
+  }
+
+  cricketBowl(d: Delivery): void {
+    this.socket?.emit('cricket:bowl', d);
+  }
+
+  cricketBat(i: BatInput): void {
+    this.socket?.emit('cricket:bat', i);
   }
 
   startMatch(): Promise<Ack<null>> {

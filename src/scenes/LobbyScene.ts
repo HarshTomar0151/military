@@ -73,7 +73,7 @@ export class LobbyScene extends Phaser.Scene {
 
   private async refresh(): Promise<void> {
     if (net.room) return;
-    this.rooms = await net.listRooms();
+    this.rooms = (await net.listRooms()).filter((r) => r.game === 'shooter');
     if (!net.room && this.scene.isActive()) this.render();
   }
 

@@ -22,7 +22,7 @@ export class BootScene extends Phaser.Scene {
     const timeout = new Promise((r) => setTimeout(r, 2500));
     void Promise.race([ready, timeout]).then(() => {
       document.getElementById('boot')?.classList.add('hide');
-      this.scene.start('Menu');
+      this.scene.start('GameSelect');
     });
   }
 }

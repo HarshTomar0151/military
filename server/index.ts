@@ -1,10 +1,19 @@
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';
-import { MAX_ROOM_PLAYERS, type ClientToServerEvents, type PlayerProfile, type ServerToClientEvents } from '../shared/protocol';
+import {
+  MAX_ROOM_PLAYERS,
+  type ClientToServerEvents,
+  type PlayerProfile,
+  type ServerToClientEvents,
+} from '../shared/protocol';
+import { DEFAULT_CRICKET, OVER_OPTIONS, WICKET_OPTIONS } from '../shared/cricket';
+import { CricketRoom } from './CricketRoom';
 import { Room, type Sock } from './Room';
 
+type AnyRoom = Room | CricketRoom;
+
 const PORT = Number(process.env.PORT ?? 3001);
-const rooms = new Map<string, Room>();
+const rooms = new Map<string, AnyRoom>();
 const roomOf = new Map<string, string>(); // socket id -> room id
 
 const httpServer = createServer((_req, res) => {
@@ -54,7 +63,15 @@ function leave(sock: Sock): void {
 }
 
 io.on('connection', (sock: Sock) => {
-  const room = (): Room | undefined => rooms.get(roomOf.get(sock.id) ?? '');
+  const room = (): AnyRoom | undefined => rooms.get(roomOf.get(sock.id) ?? '');
+  const shooter = (): Room | undefined => {
+    const r = room();
+    return r instanceof Room ? r : undefined;
+  };
+  const cricket = (): CricketRoom | undefined => {
+    const r = room();
+    return r instanceof CricketRoom ? r : undefined;
+  };
 
   sock.on('lobby:list', (ack) => {
     if (typeof ack === 'function') ack([...rooms.values()].map((r) => r.info()));
@@ -63,11 +80,18 @@ io.on('connection', (sock: Sock) => {
   sock.on('room:create', (req, ack) => {
     if (typeof ack !== 'function') return;
     leave(sock);
-    const mode = MODES.includes(req?.mode) ? req.mode : 'deathmatch';
-    const mapId = MAPS.includes(req?.mapId) ? req.mapId : 'military';
     const id = newRoomId();
     const name = String(req?.name ?? 'Room').slice(0, 20) || 'Room';
-    const r = new Room(io, id, name, mode, mapId);
+    let r: AnyRoom;
+    if (req?.game === 'cricket') {
+      const overs = OVER_OPTIONS.includes(Number(req.cricket?.overs)) ? Number(req.cricket?.overs) : DEFAULT_CRICKET.overs;
+      const wickets = WICKET_OPTIONS.includes(Number(req.cricket?.wickets)) ? Number(req.cricket?.wickets) : DEFAULT_CRICKET.wickets;
+      r = new CricketRoom(io, id, name, { overs, wickets });
+    } else {
+      const mode = MODES.includes(req?.mode) ? req.mode : 'deathmatch';
+      const mapId = MAPS.includes(req?.mapId) ? req.mapId : 'military';
+      r = new Room(io, id, name, mode, mapId);
+    }
     rooms.set(id, r);
     r.add(sock, cleanProfile(req?.player));
     roomOf.set(sock.id, id);
@@ -79,7 +103,8 @@ io.on('connection', (sock: Sock) => {
     const r = rooms.get(String(req?.roomId));
     if (!r) return ack({ ok: false, error: 'Room no longer exists' });
     if (r.playing) return ack({ ok: false, error: 'Match already in progress' });
-    if (r.size >= MAX_ROOM_PLAYERS) return ack({ ok: false, error: 'Room is full' });
+    const max = r instanceof CricketRoom ? r.maxPlayers : MAX_ROOM_PLAYERS;
+    if (r.size >= max) return ack({ ok: false, error: 'Room is full' });
     leave(sock);
     r.add(sock, cleanProfile(req.player));
     roomOf.set(sock.id, r.id);
@@ -93,19 +118,28 @@ io.on('connection', (sock: Sock) => {
     if (typeof ack !== 'function') return;
     if (!r) return ack({ ok: false, error: 'Not in a room' });
     if (r.hostId !== sock.id) return ack({ ok: false, error: 'Only the host can start' });
+    if (r instanceof CricketRoom) {
+      const err = r.start();
+      return err ? ack({ ok: false, error: err }) : ack({ ok: true, data: null });
+    }
     r.start();
     ack({ ok: true, data: null });
   });
 
-  sock.on('game:state', (s) => room()?.relayState(sock.id, s, sock));
+  // ---- shooter
+  sock.on('game:state', (s) => shooter()?.relayState(sock.id, s, sock));
   sock.on('game:fire', (f) => {
-    if (room()?.playing) sock.to(roomOf.get(sock.id)!).emit('game:fire', { id: sock.id, ...f });
+    if (shooter()?.playing) sock.to(roomOf.get(sock.id)!).emit('game:fire', { id: sock.id, ...f });
   });
   sock.on('game:grenade', (g) => {
-    if (room()?.playing) sock.to(roomOf.get(sock.id)!).emit('game:grenade', { id: sock.id, ...g });
+    if (shooter()?.playing) sock.to(roomOf.get(sock.id)!).emit('game:grenade', { id: sock.id, ...g });
   });
-  sock.on('game:hit', (h) => room()?.hit(sock.id, h));
-  sock.on('game:pickup', (p) => room()?.pickup(sock.id, p.idx, p.kind));
+  sock.on('game:hit', (h) => shooter()?.hit(sock.id, h));
+  sock.on('game:pickup', (p) => shooter()?.pickup(sock.id, p.idx, p.kind));
+
+  // ---- cricket
+  sock.on('cricket:bowl', (d) => cricket()?.bowl(sock.id, d));
+  sock.on('cricket:bat', (i) => cricket()?.bat(sock.id, i));
 
   sock.on('disconnect', () => leave(sock));
 });

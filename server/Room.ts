@@ -66,6 +66,7 @@ export class Room {
   info(): RoomInfo {
     return {
       id: this.id,
+      game: 'shooter',
       name: this.name,
       mode: this.mode,
       mapId: this.mapId,

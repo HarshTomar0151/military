@@ -57,13 +57,31 @@ export async function toggleFullscreen(): Promise<boolean> {
   return enterFullscreen();
 }
 
-/** On touch devices the first tap switches to fullscreen (browsers require a user gesture). */
+/**
+ * On touch devices a tap switches to fullscreen (browsers require a user gesture). We keep trying on
+ * the next taps until it works, and never force it again once the player leaves fullscreen.
+ */
 export function installAutoFullscreen(): void {
-  let tried = false;
+  let attempts = 0;
+  let done = false;
+  let pending = false;
+  const handler = (): void => {
+    if (done || pending || attempts >= 8) return;
+    if (!isTouchDevice() || !store.settings.autoFullscreen || isStandalone() || !canFullscreen()) return;
+    if (isFullscreen()) {
+      done = true;
+      return;
+    }
+    attempts++;
+    pending = true;
+    void enterFullscreen().then((ok) => {
+      pending = false;
+      if (ok) done = true;
+    });
+  };
   window.addEventListener('pointerup', (e) => {
-    if (tried || e.pointerType !== 'touch') return;
-    if (!store.settings.autoFullscreen || isFullscreen() || isStandalone() || !canFullscreen()) return;
-    tried = true;
-    void enterFullscreen();
+    if (e.pointerType === 'touch') handler();
   });
+  window.addEventListener('touchend', handler);
+  window.addEventListener('click', handler);
 }

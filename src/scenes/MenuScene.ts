@@ -80,6 +80,14 @@ export class MenuScene extends Phaser.Scene {
 
     ui(this, GAME_W - 20, GAME_H - 26, 'v0.1.0  ·  Phaser 3 · Socket.IO', 12, '#456a52', { origin: [1, 0.5] });
 
+    const sw = ui(this, 68, GAME_H - 62, '◀ SWITCH GAME  (JETFRONT / CRICKET)', 14, COLORS.textDim, { origin: [0, 0.5] }).setInteractive({ useHandCursor: true });
+    sw.on('pointerover', () => sw.setColor('#ffd166'));
+    sw.on('pointerout', () => sw.setColor(COLORS.textDim));
+    sw.on('pointerdown', () => {
+      audio.play('ui');
+      fadeTo(this, 'GameSelect');
+    });
+
     // fullscreen toggle
     const fs = ui(this, 68, GAME_H - 30, '⛶ FULLSCREEN', 14, COLORS.textDim, { origin: [0, 0.5] }).setInteractive({ useHandCursor: true });
     fs.on('pointerover', () => fs.setColor('#39ff14'));

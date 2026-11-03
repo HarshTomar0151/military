@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { COLORS, FONT_DISPLAY, FONT_UI, GAME_H, GAME_W, hex } from '../config';
+import { COLORS, FONT_DISPLAY, FONT_UI, GAME_H, GAME_W, SCREEN_W, hex, viewPad } from '../config';
+import { canFullscreen, isStandalone, isTouchDevice } from '../systems/Fullscreen';
 import { audio } from '../systems/AudioManager';
 
 export function ui(
@@ -243,10 +244,10 @@ export function slider(
   };
   hit.on('pointerdown', (p: Phaser.Input.Pointer) => {
     dragging = true;
-    set(p.x);
+    set(p.worldX);
   });
   scene.input.on('pointermove', (p: Phaser.Input.Pointer) => {
-    if (dragging && p.isDown) set(p.x);
+    if (dragging && p.isDown) set(p.worldX);
   });
   scene.input.on('pointerup', () => {
     if (dragging) audio.play('hover');
@@ -261,18 +262,26 @@ export function fadeTo(scene: Phaser.Scene, key: string, data?: object): void {
   scene.cameras.main.once('camerafadeoutcomplete', () => scene.scene.start(key, data));
 }
 
-/** Animated dark-military backdrop used by all menu scenes. */
+/**
+ * Animated dark-military backdrop used by all menu scenes. It also centres the 1280-wide design area on
+ * screens that are wider than 16:9, with the backdrop extending to the real screen edges.
+ */
 export function createBackdrop(scene: Phaser.Scene): void {
+  const pad = viewPad();
+  const x0 = -pad;
+  const W = SCREEN_W;
+  scene.cameras.main.setScroll(-pad, 0);
+
   const g = scene.add.graphics().setDepth(-10);
   g.fillGradientStyle(0x050a07, 0x050a07, 0x0b1a10, 0x0b1a10, 1);
-  g.fillRect(0, 0, GAME_W, GAME_H);
+  g.fillRect(x0 - 2, 0, W + 4, GAME_H);
 
   const grid = scene.add.graphics().setDepth(-9);
   const drawGrid = (off: number): void => {
     grid.clear();
     grid.lineStyle(1, COLORS.neon, 0.05);
-    for (let x = -80 + (off % 80); x < GAME_W; x += 80) grid.lineBetween(x, 0, x, GAME_H);
-    for (let y = -80 + ((off * 0.5) % 80); y < GAME_H; y += 80) grid.lineBetween(0, y, GAME_W, y);
+    for (let x = x0 - 80 + (off % 80); x < x0 + W; x += 80) grid.lineBetween(x, 0, x, GAME_H);
+    for (let y = -80 + ((off * 0.5) % 80); y < GAME_H; y += 80) grid.lineBetween(x0, y, x0 + W, y);
   };
   let off = 0;
   scene.events.on('update', (_t: number, d: number) => {
@@ -282,7 +291,7 @@ export function createBackdrop(scene: Phaser.Scene): void {
 
   const dust = scene.add.graphics().setDepth(-8);
   const motes = Array.from({ length: 46 }, () => ({
-    x: Math.random() * GAME_W, y: Math.random() * GAME_H, s: 0.4 + Math.random() * 1.6, v: 6 + Math.random() * 22,
+    x: x0 + Math.random() * W, y: Math.random() * GAME_H, s: 0.4 + Math.random() * 1.6, v: 6 + Math.random() * 22,
   }));
   scene.events.on('update', (_t: number, d: number) => {
     dust.clear();
@@ -291,17 +300,25 @@ export function createBackdrop(scene: Phaser.Scene): void {
       m.x += (m.v * 0.3 * d) / 1000;
       if (m.y < -4) {
         m.y = GAME_H + 4;
-        m.x = Math.random() * GAME_W;
+        m.x = x0 + Math.random() * W;
       }
       dust.fillStyle(COLORS.neon, 0.12 + m.s * 0.1).fillCircle(m.x, m.y, m.s);
     }
   });
 
   const vig = scene.add.graphics().setDepth(100);
-  vig.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0.65, 0.65, 0, 0).fillRect(0, 0, GAME_W, 140);
-  vig.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0, 0, 0.7, 0.7).fillRect(0, GAME_H - 160, GAME_W, 160);
+  vig.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0.65, 0.65, 0, 0).fillRect(x0, 0, W, 140);
+  vig.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0, 0, 0.7, 0.7).fillRect(x0, GAME_H - 160, W, 160);
   const scan = scene.add.graphics().setDepth(101).setAlpha(0.05);
-  for (let y = 0; y < GAME_H; y += 3) scan.fillStyle(0x000000, 1).fillRect(0, y, GAME_W, 1);
+  for (let y = 0; y < GAME_H; y += 3) scan.fillStyle(0x000000, 1).fillRect(x0, y, W, 1);
+}
+
+/** iPhone browsers have no fullscreen API: point people at "Add to Home Screen". */
+export function addInstallHint(scene: Phaser.Scene): void {
+  if (!isTouchDevice() || isStandalone() || canFullscreen()) return;
+  ui(scene, GAME_W / 2, GAME_H - 44, 'FULL SCREEN on iPhone: tap Share ▸ Add to Home Screen, then open the game from your home screen', 15, '#ffb020', {
+    origin: [0.5, 0.5], align: 'center', width: 980,
+  });
 }
 
 export function screenTitle(scene: Phaser.Scene, title: string, sub?: string): void {

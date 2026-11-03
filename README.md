@@ -28,6 +28,8 @@ An in-game **HOW TO PLAY** tutorial (menu button; shown automatically before the
 
 Grenades: **Frag** (explosion), **Gas** (slowing + damaging cloud), **Poison** (lingering damage) — `E` / TYPE button switches, `G` / NADE throws. The jetpack has unlimited fuel.
 
+**Full screen on phones:** the canvas adapts to the screen aspect ratio (no black bars). Android Chrome goes fullscreen on the first tap (or via the GO FULLSCREEN button); iPhone browsers have no fullscreen API, so use Share ▸ Add to Home Screen.
+
 Mobile (landscape): floating move stick, aim stick (auto-fire at the rim, optional), FIRE / JUMP / JET / NADE / TYPE / RLD / SWAP buttons (haptic feedback, smoothed sticks, bigger HUD and closer camera). Push the move stick up to use the jetpack. Touch mode is *Auto* (coarse-pointer devices) and can be forced in Settings.
 
 ## Game modes

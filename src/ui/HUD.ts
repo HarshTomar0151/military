@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
-import { COLORS, FONT_DISPLAY, FONT_UI, GAME_H, GAME_W, hex } from '../config';
+import { COLORS, FONT_DISPLAY, FONT_UI, GAME_H, SAFE, SCREEN_W, hex } from '../config';
 import { NADES, NADE_ORDER, WEAPONS } from '../data/weapons';
 import { drawWeapon } from '../entities/WeaponArt';
 import type { GameScene, HudState } from '../scenes/GameScene';
 import { button, display, panel, ui } from './theme';
 import { TouchControls } from './TouchControls';
+import { canFullscreen, isTouchDevice, toggleFullscreen } from '../systems/Fullscreen';
 import { store } from '../systems/Storage';
 
 interface FeedEntry {
@@ -62,7 +63,7 @@ export class HUD {
     this.k = K;
 
     // ---- top-center scoreboard
-    const sb = scene.add.container(GAME_W / 2, 12).setDepth(10).setScale(K);
+    const sb = scene.add.container(SCREEN_W / 2, 12).setDepth(10).setScale(K);
     this.timer = ui(scene, 0, 12, '5:00', 34, '#d8ffe0', { origin: [0.5, 0] });
     this.scoreL = ui(scene, -98, 10, '0', 38, '#d8ffe0', { origin: [0.5, 0] });
     this.scoreR = ui(scene, 98, 10, '0', 38, '#d8ffe0', { origin: [0.5, 0] });
@@ -72,7 +73,7 @@ export class HUD {
     // ---- minimap
     const mmW = 210;
     const mmH = 105;
-    const mini = scene.add.container(14, 14).setDepth(10).setScale(KM);
+    const mini = scene.add.container(14 + SAFE.l, 14).setDepth(10).setScale(KM);
     this.mapStatic = scene.add.graphics();
     this.mapDots = scene.add.graphics();
     const sx = mmW / game.map.w;
@@ -83,7 +84,7 @@ export class HUD {
     mini.add([panel(scene, 0, 0, mmW + 12, mmH + 12, { alpha: 0.6, cut: 8 }), this.mapStatic, this.mapDots]);
 
     // ---- vitals
-    const vit = scene.add.container(14, touch ? 14 + (mmH + 12) * KM + 10 : GAME_H - 130).setDepth(10).setScale(K);
+    const vit = scene.add.container(14 + SAFE.l, touch ? 14 + (mmH + 12) * KM + 10 : GAME_H - 130).setDepth(10).setScale(K);
     this.bars = scene.add.graphics();
     this.hpText = ui(scene, 12, 4, '100', 34, '#d8ffe0');
     vit.add([
@@ -95,7 +96,7 @@ export class HUD {
 
     // ---- weapon panel
     const KW = touch ? 1.1 : 1; // weapon panel sits between the thumb clusters, so it scales a little less
-    const wp = scene.add.container(touch ? (GAME_W - 320 * KW) / 2 : GAME_W - 24 - 310, touch ? GAME_H - 98 * KW - 10 : GAME_H - 130).setDepth(10).setScale(KW);
+    const wp = scene.add.container(touch ? (SCREEN_W - 320 * KW) / 2 : SCREEN_W - 24 - SAFE.r - 310, touch ? GAME_H - 98 * KW - 10 : GAME_H - 130).setDepth(10).setScale(KW);
     this.wpnGfx = scene.add.graphics();
     this.altGfx = scene.add.graphics();
     this.wbars = scene.add.graphics();
@@ -110,14 +111,14 @@ export class HUD {
       ui(scene, 270, 72, '[E]', 12, COLORS.textDim),
     ]);
 
-    this.kdText = ui(scene, GAME_W - 24, 24, '', touch ? 20 : 16, '#d8ffe0', { origin: [1, 0] }).setDepth(11);
+    this.kdText = ui(scene, SCREEN_W - 24 - SAFE.r, 24, '', touch ? 20 : 16, '#d8ffe0', { origin: [1, 0] }).setDepth(11);
 
     // ---- overlays
     this.fx = scene.add.graphics().setDepth(40);
     this.cross = scene.add.graphics().setDepth(41);
     const mk = (y: number, size: number, key: string): void => {
       this.msgs[key] = scene.add
-        .text(GAME_W / 2, y, '', { fontFamily: FONT_DISPLAY, fontSize: `${size}px`, fontStyle: '700', color: '#ffffff' })
+        .text(SCREEN_W / 2, y, '', { fontFamily: FONT_DISPLAY, fontSize: `${size}px`, fontStyle: '700', color: '#ffffff' })
         .setOrigin(0.5)
         .setDepth(50)
         .setStroke('#000000', 6)
@@ -126,18 +127,18 @@ export class HUD {
     mk(260, 84, 'big');
     mk(190, 32, 'medium');
     mk(228, 22, 'small');
-    this.deathText = scene.add.text(GAME_W / 2, 280, '', { fontFamily: FONT_DISPLAY, fontSize: '34px', fontStyle: '700', color: '#ff5a4a' }).setOrigin(0.5).setDepth(50).setStroke('#000', 6);
-    this.deathSub = scene.add.text(GAME_W / 2, 330, '', { fontFamily: FONT_UI, fontSize: '26px', fontStyle: '700', color: '#d8ffe0' }).setOrigin(0.5).setDepth(50).setStroke('#000', 5);
+    this.deathText = scene.add.text(SCREEN_W / 2, 280, '', { fontFamily: FONT_DISPLAY, fontSize: '34px', fontStyle: '700', color: '#ff5a4a' }).setOrigin(0.5).setDepth(50).setStroke('#000', 6);
+    this.deathSub = scene.add.text(SCREEN_W / 2, 330, '', { fontFamily: FONT_UI, fontSize: '26px', fontStyle: '700', color: '#d8ffe0' }).setOrigin(0.5).setDepth(50).setStroke('#000', 5);
 
     const hintText = touch
       ? "LEFT STICK move  ·  JET fly  ·  JUMP  ·  RIGHT STICK aim (edge = auto-fire)  ·  FIRE"
       : "A / D MOVE   ·   SPACE JUMP   ·   SHIFT JETPACK   ·   MOUSE AIM   ·   CLICK SHOOT   ·   R RELOAD   ·   Q SWAP   ·   G GRENADE";
-    const ht = ui(scene, GAME_W / 2, GAME_H / 2 + 120, hintText, 18, "#d8ffe0", { origin: [0.5, 0.5], align: "center", width: 1000 }).setStroke("#000", 4);
-    const hbg = scene.add.rectangle(GAME_W / 2, GAME_H / 2 + 120, Math.min(1060, ht.width + 40), ht.height + 22, 0x000000, 0.6);
+    const ht = ui(scene, SCREEN_W / 2, GAME_H / 2 + 120, hintText, 18, "#d8ffe0", { origin: [0.5, 0.5], align: "center", width: 1000 }).setStroke("#000", 4);
+    const hbg = scene.add.rectangle(SCREEN_W / 2, GAME_H / 2 + 120, Math.min(1060, ht.width + 40), ht.height + 22, 0x000000, 0.6);
     this.hint = scene.add.container(0, 0, [hbg, ht]).setDepth(48);
 
     // pause button
-    const pause = scene.add.text(GAME_W - 24, touch ? 56 : 62, '❚❚ PAUSE', { fontFamily: FONT_DISPLAY, fontSize: touch ? '20px' : '13px', fontStyle: '700', color: '#7fa889' }).setOrigin(1, 0).setDepth(12).setInteractive({ useHandCursor: true });
+    const pause = scene.add.text(SCREEN_W - 24 - SAFE.r, touch ? 56 : 62, '❚❚ PAUSE', { fontFamily: FONT_DISPLAY, fontSize: touch ? '20px' : '13px', fontStyle: '700', color: '#7fa889' }).setOrigin(1, 0).setDepth(12).setInteractive({ useHandCursor: true });
     pause.on('pointerdown', () => game.setPaused(!game.paused));
     pause.on('pointerover', () => pause.setColor('#39ff14'));
     pause.on('pointerout', () => pause.setColor('#7fa889'));
@@ -181,7 +182,7 @@ export class HUD {
     const bg = s.add.graphics();
     bg.fillStyle(0x000000, 0.55).fillRect(x - 8, -14, -x + 12, 28);
     if (e.mine) bg.lineStyle(1.5, COLORS.neon, 1).strokeRect(x - 8, -14, -x + 12, 28);
-    const c = s.add.container(GAME_W - 24, 0, [bg, ...parts]).setDepth(12);
+    const c = s.add.container(SCREEN_W - 24 - SAFE.r, 0, [bg, ...parts]).setDepth(12);
     this.feed.unshift({ c, born: s.time.now });
     if (this.feed.length > 6) this.feed.pop()!.c.destroy();
   };
@@ -217,12 +218,16 @@ export class HUD {
     this.pauseUi = undefined;
     if (!p) return;
     const s = this.scene;
-    const dim = s.add.rectangle(GAME_W / 2, GAME_H / 2, GAME_W, GAME_H, 0x000000, 0.65).setInteractive();
-    const pn = panel(s, GAME_W / 2 - 200, GAME_H / 2 - 150, 400, 300, { title: this.game.cfg.online ? 'MATCH MENU' : 'PAUSED' });
-    const resume = button(s, GAME_W / 2, GAME_H / 2 - 40, 280, 54, 'RESUME', () => this.game.setPaused(false), { primary: true });
-    const quit = button(s, GAME_W / 2, GAME_H / 2 + 40, 280, 54, this.game.cfg.online ? 'LEAVE MATCH' : 'QUIT TO MENU', () => this.game.quit(), { danger: true });
-    const hint = ui(s, GAME_W / 2, GAME_H / 2 + 100, this.game.cfg.online ? 'Match continues while this menu is open' : 'ESC to resume', 14, COLORS.textDim, { origin: [0.5, 0] });
-    this.pauseUi = s.add.container(0, 0, [dim, pn, resume, quit, hint]).setDepth(200);
+    const dim = s.add.rectangle(SCREEN_W / 2, GAME_H / 2, SCREEN_W, GAME_H, 0x000000, 0.65).setInteractive();
+    const pn = panel(s, SCREEN_W / 2 - 200, GAME_H / 2 - 150, 400, 300, { title: this.game.cfg.online ? 'MATCH MENU' : 'PAUSED' });
+    const resume = button(s, SCREEN_W / 2, GAME_H / 2 - 40, 280, 54, 'RESUME', () => this.game.setPaused(false), { primary: true });
+    const quit = button(s, SCREEN_W / 2, GAME_H / 2 + 40, 280, 54, this.game.cfg.online ? 'LEAVE MATCH' : 'QUIT TO MENU', () => this.game.quit(), { danger: true });
+    const hint = ui(s, SCREEN_W / 2, GAME_H / 2 + 100, this.game.cfg.online ? 'Match continues while this menu is open' : 'ESC to resume', 14, COLORS.textDim, { origin: [0.5, 0] });
+    const items: Phaser.GameObjects.GameObject[] = [dim, pn, resume, quit, hint];
+    if (isTouchDevice() && canFullscreen()) {
+      items.push(button(s, SCREEN_W / 2, GAME_H / 2 + 138, 280, 40, '⛶ TOGGLE FULLSCREEN', () => void toggleFullscreen(), { fontSize: 12 }));
+    }
+    this.pauseUi = s.add.container(0, 0, items).setDepth(200);
   };
 
   // ---------------------------------------------------------------- frame
@@ -323,7 +328,7 @@ export class HUD {
     }
     for (const f of this.feed) {
       const age = now - f.born;
-      f.c.setPosition(GAME_W - 24, y).setAlpha(age > 5000 ? 1 - (age - 5000) / 1000 : 1);
+      f.c.setPosition(SCREEN_W - 24 - SAFE.r, y).setAlpha(age > 5000 ? 1 - (age - 5000) / 1000 : 1);
       y += 32;
     }
 
@@ -352,8 +357,8 @@ export class HUD {
     const low = s.alive && s.hp < 30 ? 0.18 + 0.12 * Math.sin(now * 0.008) : 0;
     const va = Math.max(this.flash, low);
     if (va > 0.01) {
-      fx.fillGradientStyle(0xff0000, 0xff0000, 0xff0000, 0xff0000, va, va, 0, 0).fillRect(0, 0, GAME_W, 130);
-      fx.fillGradientStyle(0xff0000, 0xff0000, 0xff0000, 0xff0000, 0, 0, va, va).fillRect(0, GAME_H - 130, GAME_W, 130);
+      fx.fillGradientStyle(0xff0000, 0xff0000, 0xff0000, 0xff0000, va, va, 0, 0).fillRect(0, 0, SCREEN_W, 130);
+      fx.fillGradientStyle(0xff0000, 0xff0000, 0xff0000, 0xff0000, 0, 0, va, va).fillRect(0, GAME_H - 130, SCREEN_W, 130);
     }
     for (let i = this.hurts.length - 1; i >= 0; i--) {
       const h = this.hurts[i];
@@ -361,7 +366,7 @@ export class HUD {
       if (h.life <= 0) { this.hurts.splice(i, 1); continue; }
       const a = Math.min(1, h.life * 1.4);
       const r = 190;
-      const cx = GAME_W / 2 + Math.cos(h.a) * r;
+      const cx = SCREEN_W / 2 + Math.cos(h.a) * r;
       const cy = GAME_H / 2 + Math.sin(h.a) * r;
       const tx = Math.cos(h.a);
       const ty = Math.sin(h.a);

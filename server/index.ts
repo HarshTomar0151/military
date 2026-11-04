@@ -8,9 +8,11 @@ import {
 } from '../shared/protocol';
 import { DEFAULT_CRICKET, OVER_OPTIONS, WICKET_OPTIONS } from '../shared/cricket';
 import { CricketRoom } from './CricketRoom';
+import { LudoRoom } from './LudoRoom';
+import { LUDO_SEAT_OPTIONS } from '../shared/ludo';
 import { Room, type Sock } from './Room';
 
-type AnyRoom = Room | CricketRoom;
+type AnyRoom = Room | CricketRoom | LudoRoom;
 
 const PORT = Number(process.env.PORT ?? 3001);
 const rooms = new Map<string, AnyRoom>();
@@ -72,6 +74,10 @@ io.on('connection', (sock: Sock) => {
     const r = room();
     return r instanceof CricketRoom ? r : undefined;
   };
+  const ludo = (): LudoRoom | undefined => {
+    const r = room();
+    return r instanceof LudoRoom ? r : undefined;
+  };
 
   sock.on('lobby:list', (ack) => {
     if (typeof ack === 'function') ack([...rooms.values()].map((r) => r.info()));
@@ -87,6 +93,9 @@ io.on('connection', (sock: Sock) => {
       const overs = OVER_OPTIONS.includes(Number(req.cricket?.overs)) ? Number(req.cricket?.overs) : DEFAULT_CRICKET.overs;
       const wickets = WICKET_OPTIONS.includes(Number(req.cricket?.wickets)) ? Number(req.cricket?.wickets) : DEFAULT_CRICKET.wickets;
       r = new CricketRoom(io, id, name, { overs, wickets });
+    } else if (req?.game === 'ludo') {
+      const seats = LUDO_SEAT_OPTIONS.includes(Number(req.ludo?.seats)) ? Number(req.ludo?.seats) : 4;
+      r = new LudoRoom(io, id, name, seats);
     } else {
       const mode = MODES.includes(req?.mode) ? req.mode : 'deathmatch';
       const mapId = MAPS.includes(req?.mapId) ? req.mapId : 'military';
@@ -103,7 +112,7 @@ io.on('connection', (sock: Sock) => {
     const r = rooms.get(String(req?.roomId));
     if (!r) return ack({ ok: false, error: 'Room no longer exists' });
     if (r.playing) return ack({ ok: false, error: 'Match already in progress' });
-    const max = r instanceof CricketRoom ? r.maxPlayers : MAX_ROOM_PLAYERS;
+    const max = r instanceof Room ? MAX_ROOM_PLAYERS : r.maxPlayers;
     if (r.size >= max) return ack({ ok: false, error: 'Room is full' });
     leave(sock);
     r.add(sock, cleanProfile(req.player));
@@ -118,7 +127,7 @@ io.on('connection', (sock: Sock) => {
     if (typeof ack !== 'function') return;
     if (!r) return ack({ ok: false, error: 'Not in a room' });
     if (r.hostId !== sock.id) return ack({ ok: false, error: 'Only the host can start' });
-    if (r instanceof CricketRoom) {
+    if (r instanceof CricketRoom || r instanceof LudoRoom) {
       const err = r.start();
       return err ? ack({ ok: false, error: err }) : ack({ ok: true, data: null });
     }
@@ -140,6 +149,10 @@ io.on('connection', (sock: Sock) => {
   // ---- cricket
   sock.on('cricket:bowl', (d) => cricket()?.bowl(sock.id, d));
   sock.on('cricket:bat', (i) => cricket()?.bat(sock.id, i));
+
+  // ---- ludo
+  sock.on('ludo:roll', () => ludo()?.roll(sock.id));
+  sock.on('ludo:move', (t) => ludo()?.move(sock.id, t));
 
   sock.on('disconnect', () => leave(sock));
 });

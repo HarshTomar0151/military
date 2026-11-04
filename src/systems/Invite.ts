@@ -9,7 +9,8 @@ export function readInviteFromUrl(): void {
     const room = (q.get('room') ?? '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
     if (room) {
       invite.room = room;
-      invite.game = q.get('g') === 'cricket' ? 'cricket' : 'shooter';
+      const g = q.get('g');
+      invite.game = g === 'cricket' ? 'cricket' : g === 'ludo' ? 'ludo' : 'shooter';
       // keep the address bar clean so a refresh doesn't re-join a finished room
       window.history.replaceState(null, '', window.location.pathname);
     }
@@ -51,7 +52,7 @@ export async function copyText(text: string): Promise<boolean> {
 /** Opens the phone's share sheet (WhatsApp etc.) or copies the invite text + link. */
 export async function shareRoom(id: string, game: GameKind): Promise<'shared' | 'copied' | 'failed'> {
   const url = inviteUrl(id, game);
-  const text = `Join my ${game === 'cricket' ? 'Cricket' : 'JETFRONT'} match! Room code: ${id}`;
+  const text = `Join my ${game === 'cricket' ? 'Cricket' : game === 'ludo' ? 'Ludo' : 'JETFRONT'} match! Room code: ${id}`;
   if (navigator.share) {
     try {
       await navigator.share({ title: 'JETFRONT', text, url });

@@ -142,6 +142,20 @@ class AudioManager {
         this.hiss(1.1, 3200, 700, 0.55 * v);
         this.tone(160, 60, 0.3, 'sawtooth', 0.12 * v);
         break;
+      case 'dice':
+        for (let i = 0; i < 7; i++) this.tone(300 + Math.random() * 500, 150, 0.04, 'square', 0.1 * v, i * 0.075);
+        break;
+      case 'tick':
+        this.tone(700, 520, 0.05, 'triangle', 0.14 * v);
+        break;
+      case 'capture':
+        this.hiss(0.25, 2400, 300, 0.6 * v);
+        this.tone(320, 60, 0.3, 'sawtooth', 0.22 * v);
+        break;
+      case 'home':
+        this.tone(660, 990, 0.12, 'triangle', 0.22 * v);
+        this.tone(990, 1320, 0.16, 'triangle', 0.2 * v, 0.1);
+        break;
       case 'bat':
         this.hiss(0.09, 5200, 600, 0.9 * v);
         this.tone(240, 70, 0.1, 'square', 0.35 * v);

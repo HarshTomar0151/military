@@ -1,7 +1,9 @@
 // Types and constants shared by the browser client and the Node server.
 import type { BatInput, CricketBallPayload, CricketConfig, CricketEndPayload, CricketPhasePayload, CricketResultPayload, CricketStartPayload, Delivery } from './cricket';
 
-export type GameKind = 'shooter' | 'cricket';
+import type { LudoEvent, LudoStartPayload } from './ludo';
+
+export type GameKind = 'shooter' | 'cricket' | 'ludo';
 
 export type GameModeId = 'deathmatch' | 'team';
 export type MapId = 'military' | 'desert' | 'jungle';
@@ -46,6 +48,7 @@ export interface RoomInfo {
   id: string;
   game: GameKind;
   cricket?: CricketConfig;
+  ludo?: { seats: number };
   name: string;
   mode: GameModeId;
   mapId: MapId;
@@ -62,6 +65,7 @@ export interface RoomDetail extends RoomInfo {
 export interface CreateRoomRequest {
   game?: GameKind;
   cricket?: CricketConfig;
+  ludo?: { seats: number };
   name: string;
   mode: GameModeId;
   mapId: MapId;
@@ -159,6 +163,8 @@ export interface ClientToServerEvents {
   'game:pickup': (p: { idx: number; kind: 'health' | 'armor' | 'ammo' }) => void;
   'cricket:bowl': (d: Delivery) => void;
   'cricket:bat': (i: BatInput) => void;
+  'ludo:roll': () => void;
+  'ludo:move': (token: number) => void;
 }
 
 export interface ServerToClientEvents {
@@ -179,4 +185,6 @@ export interface ServerToClientEvents {
   'cricket:ball': (p: CricketBallPayload) => void;
   'cricket:result': (p: CricketResultPayload) => void;
   'cricket:end': (p: CricketEndPayload) => void;
+  'ludo:start': (p: LudoStartPayload) => void;
+  'ludo:event': (e: LudoEvent) => void;
 }

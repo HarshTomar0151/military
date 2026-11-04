@@ -26,7 +26,7 @@ export class BootScene extends Phaser.Scene {
       if (invite.room) {
         const code = invite.room;
         invite.room = '';
-        this.scene.start(invite.game === 'cricket' ? 'CricketLobby' : 'Lobby', { join: code });
+        this.scene.start(invite.game === 'cricket' ? 'CricketLobby' : invite.game === 'ludo' ? 'LudoLobby' : 'Lobby', { join: code });
       } else {
         this.scene.start('GameSelect');
       }

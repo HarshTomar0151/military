@@ -32,6 +32,9 @@ Grenades: **Frag** (explosion), **Gas** (slowing + damaging cloud), **Poison** (
 
 Mobile (landscape): floating move stick, aim stick (auto-fire at the rim, optional), FIRE / JUMP / JET / NADE / TYPE / RLD / SWAP buttons (haptic feedback, smoothed sticks, bigger HUD and closer camera). Push the move stick up to use the jetpack. Touch mode is *Auto* (coarse-pointer devices) and can be forced in Settings.
 
+## Ludo
+A third game on the game-select screen: classic 2–4 player Ludo (roll a 6 to leave the yard, exact roll to get home, stars/start squares are safe, capture to send tokens back, 6 = extra turn, three 6s lose the turn). Modes: vs computer, pass-the-phone with friends on one device, and online rooms with a room code / invite link (empty seats are played by the computer; if a player leaves, the computer takes over). The rules live in `shared/ludo.ts` and run on both the browser and the server.
+
 ## Playing with friends
 Create a room (JETFRONT or Cricket) and share the **room code** or the **invite link** (COPY CODE / SHARE LINK in the room screen). A friend can open the link (`?room=ABCD&g=cricket`) or press **JOIN BY CODE** in the lobby. Free hosting (Render) sleeps when idle: the game wakes the server in the background on start and the lobby connects by itself (shows "WAKING UP THE SERVER…"). To keep it awake, ping the server URL every 5 minutes with a free monitor such as UptimeRobot.
 

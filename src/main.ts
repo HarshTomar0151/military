@@ -9,6 +9,9 @@ import { CustomizeScene } from './scenes/CustomizeScene';
 import { CricketLobbyScene } from './scenes/CricketLobbyScene';
 import { CricketMenuScene } from './scenes/CricketMenuScene';
 import { CricketScene } from './scenes/CricketScene';
+import { LudoLobbyScene } from './scenes/LudoLobbyScene';
+import { LudoMenuScene } from './scenes/LudoMenuScene';
+import { LudoScene } from './scenes/LudoScene';
 import { GameScene } from './scenes/GameScene';
 import { GameSelectScene } from './scenes/GameSelectScene';
 import { HowToScene } from './scenes/HowToScene';
@@ -53,7 +56,7 @@ const game = new Phaser.Game({
   input: { activePointers: 4, windowEvents: true },
   render: { antialias: true, powerPreference: 'high-performance' },
   disableContextMenu: true,
-  scene: [BootScene, GameSelectScene, CricketMenuScene, CricketLobbyScene, CricketScene, MenuScene, HowToScene, PracticeScene, CustomizeScene, SettingsScene, LobbyScene, GameScene, HUDScene, ResultsScene],
+  scene: [BootScene, GameSelectScene, CricketMenuScene, CricketLobbyScene, CricketScene, LudoMenuScene, LudoLobbyScene, LudoScene, MenuScene, HowToScene, PracticeScene, CustomizeScene, SettingsScene, LobbyScene, GameScene, HUDScene, ResultsScene],
 });
 
 // Browsers and the Android WebView block audio until a user gesture.

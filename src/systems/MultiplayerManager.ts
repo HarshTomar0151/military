@@ -187,6 +187,8 @@ export class MultiplayerManager extends Phaser.Events.EventEmitter {
     s.on('cricket:ball', (p) => this.emit('cball', p));
     s.on('cricket:result', (p) => this.emit('cresult', p));
     s.on('cricket:end', (p) => this.emit('cend', p));
+    s.on('ludo:start', (p) => this.emit('lstart', p));
+    s.on('ludo:event', (p) => this.emit('levent', p));
   }
 
   private setStatus(s: NetStatus): void {
@@ -231,6 +233,18 @@ export class MultiplayerManager extends Phaser.Events.EventEmitter {
 
   createCricketRoom(name: string, cricket: CricketConfig, player: PlayerProfile): Promise<Ack<RoomDetail>> {
     return this.createRoom({ game: 'cricket', cricket, name, mode: 'deathmatch', mapId: 'military', player });
+  }
+
+  createLudoRoom(name: string, seats: number, player: PlayerProfile): Promise<Ack<RoomDetail>> {
+    return this.createRoom({ game: 'ludo', ludo: { seats }, name, mode: 'deathmatch', mapId: 'military', player });
+  }
+
+  ludoRoll(): void {
+    this.socket?.emit('ludo:roll');
+  }
+
+  ludoMove(token: number): void {
+    this.socket?.emit('ludo:move', token);
   }
 
   cricketBowl(d: Delivery): void {

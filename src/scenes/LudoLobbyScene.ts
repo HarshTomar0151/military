@@ -178,7 +178,7 @@ export class LudoLobbyScene extends Phaser.Scene {
   }
 
   private async join(id: string): Promise<void> {
-    const res = await net.joinRoom(id, this.profile());
+    const res = await net.joinRoom(id, this.profile(), 'ludo');
     this.error = res.ok ? '' : res.error;
     if (!res.ok) await this.refresh();
     this.render();
@@ -220,7 +220,7 @@ export class LudoLobbyScene extends Phaser.Scene {
     this.add_(roomCodeCard(this, 826, 190, 378, room.id, 'ludo', GOLD));
     const ready = room.members.length >= 2;
     this.add_(
-      ui(this, 836, 356, isHost ? (ready ? 'Ready! Start when everyone has joined.' : 'Send the code or link to your friends…') : 'Waiting for the host to start…', 15, '#d8ffe0', { width: 360 }),
+      ui(this, 836, 356, isHost ? (ready ? 'Everyone is here — press START MATCH!' : 'Send the code or link to your friends…') : `Only the host (${room.members.find((m) => m.host)?.name ?? 'host'}) can start the match. Waiting…`, 15, '#d8ffe0', { width: 360 }),
       ui(this, 836, 398, 'At least 2 human players needed. Empty seats become computer players.', 13, COLORS.textDim, { width: 360 }),
       button(this, 1015, 496, 340, 56, 'START MATCH', () => void this.startMatch(), { primary: true, fontSize: 20, disabled: !isHost || !ready }),
       button(this, 1015, 562, 340, 40, 'LEAVE ROOM', () => {
@@ -233,10 +233,19 @@ export class LudoLobbyScene extends Phaser.Scene {
   }
 
   private async startMatch(): Promise<void> {
+    this.error = '';
     const res = await net.startMatch();
     if (!res.ok) {
       this.error = res.error;
       this.render();
+      return;
     }
+    // the server said OK but no match arrived: it is most likely running an old version
+    this.time.delayedCall(5000, () => {
+      if (!this.starting && net.room && this.sys?.isActive()) {
+        this.error = 'The server did not start a Ludo match. It is probably out of date — redeploy the server with the latest code.';
+        this.render();
+      }
+    });
   }
 }

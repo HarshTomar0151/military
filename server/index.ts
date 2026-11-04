@@ -20,7 +20,7 @@ const roomOf = new Map<string, string>(); // socket id -> room id
 
 const httpServer = createServer((_req, res) => {
   res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
-  res.end(JSON.stringify({ game: 'jetfront', ok: true, rooms: rooms.size }));
+  res.end(JSON.stringify({ game: 'jetfront', ok: true, rooms: rooms.size, games: ['shooter', 'cricket', 'ludo'] }));
 });
 
 const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {

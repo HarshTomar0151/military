@@ -31,8 +31,7 @@ export class LudoMenuScene extends Phaser.Scene {
     'LUDO'.split('').forEach((ch, i) => {
       this.add
         .text(64 + i * 74, 70, ch, { fontFamily: FONT_DISPLAY, fontSize: '88px', fontStyle: '900', color: hex(LUDO_COLORS[i]) })
-        .setStroke('#101018', 5)
-        .setShadow(0, 0, hex(LUDO_COLORS[i]), 14, true, true);
+        .setStroke('#101018', 6);
     });
     ui(this, 68, 178, 'ROLL · RACE · CAPTURE', 20, COLORS.textDim);
     const bar = this.add.graphics();
@@ -55,7 +54,7 @@ export class LudoMenuScene extends Phaser.Scene {
     const py = 96;
     panel(this, px, py, 440, 520, { title: 'MATCH SETUP' });
     const key = bakeBoard(this);
-    this.add.image(px + 220, py + 168, key).setScale(0.17).setDepth(2);
+    this.add.image(px + 220, py + 168, key).setScale(0.157).setDepth(2);
     this.renderSetup();
     button(this, px + 220, py + 484, 360, 52, 'START MATCH', () => this.start(), { primary: true, fontSize: 18 });
     addInstallHint(this);

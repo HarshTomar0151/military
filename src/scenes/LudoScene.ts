@@ -40,6 +40,7 @@ export class LudoScene extends Phaser.Scene {
   private over = false;
   private toast!: Phaser.GameObjects.Text;
   private hint!: Phaser.GameObjects.Text;
+  private hintBg!: Phaser.GameObjects.Graphics;
   private offs: (() => void)[] = [];
   private leaveBtn!: ReturnType<typeof button>;
   private leaveArmed = false;
@@ -70,15 +71,24 @@ export class LudoScene extends Phaser.Scene {
     this.cards = [];
     this.endUi = undefined;
 
-    // background: deep navy with soft glow
+    // background: royal gradient, soft glows, vignette and twinkling stars
     const bg = this.add.graphics().setDepth(-10);
-    const bands = 18;
+    const bands = 24;
     for (let i = 0; i < bands; i++) {
       const t = i / (bands - 1);
-      const c = Phaser.Display.Color.Interpolate.ColorWithColor(new Phaser.Display.Color(16, 24, 58), new Phaser.Display.Color(52, 24, 84), 1, t);
+      const c = Phaser.Display.Color.Interpolate.ColorWithColor(new Phaser.Display.Color(14, 20, 52), new Phaser.Display.Color(58, 22, 92), 1, t);
       bg.fillStyle(Phaser.Display.Color.GetColor(c.r, c.g, c.b), 1).fillRect(-pad - 2, (i * GAME_H) / bands, SCREEN_W + 4, GAME_H / bands + 1);
     }
-    bg.fillStyle(0xffffff, 0.04).fillCircle(160, 120, 220).fillCircle(1120, 620, 260);
+    for (const [x, y, r, col, a] of [[130, 120, 260, 0x5a7bff, 0.1], [1160, 600, 300, 0xff4fd8, 0.09], [640, 360, 420, 0x7a4bff, 0.07]] as [number, number, number, number, number][]) {
+      bg.fillStyle(col, a * 0.5).fillCircle(x, y, r).fillStyle(col, a).fillCircle(x, y, r * 0.6);
+    }
+    const vg = this.add.graphics().setDepth(-9);
+    vg.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0.45, 0.45, 0, 0).fillRect(-pad, 0, SCREEN_W, 120);
+    vg.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0, 0, 0.5, 0.5).fillRect(-pad, GAME_H - 140, SCREEN_W, 140);
+    for (let i = 0; i < 46; i++) {
+      const s = this.add.circle(-pad + Math.random() * SCREEN_W, Math.random() * GAME_H, 0.8 + Math.random() * 1.8, 0xffffff, 0.2 + Math.random() * 0.6).setDepth(-8);
+      this.tweens.add({ targets: s, alpha: 0.05, duration: 900 + Math.random() * 1800, yoyo: true, repeat: -1, delay: Math.random() * 1500 });
+    }
 
     // state + driver
     if (this.d.online && this.d.startState) {
@@ -108,12 +118,14 @@ export class LudoScene extends Phaser.Scene {
     this.dice.setRing(LUDO_COLORS[this.st.seats[this.st.turn].color], false);
 
     this.toast = this.add.text(GAME_W / 2, 360, '', { fontFamily: FONT_DISPLAY, fontSize: '40px', fontStyle: '900', color: '#ffffff' }).setOrigin(0.5).setStroke('#000', 8).setDepth(3000).setAlpha(0);
-    this.hint = this.add.text(GAME_W / 2, 26, '', { fontFamily: 'Rajdhani, sans-serif', fontSize: '22px', fontStyle: '700', color: '#ffffff' }).setOrigin(0.5).setStroke('#000', 4).setDepth(3000);
+    this.hintBg = this.add.graphics().setDepth(2999);
+    this.hint = this.add.text(GAME_W / 2, 26, '', { fontFamily: 'Rajdhani, sans-serif', fontSize: '21px', fontStyle: '700', color: '#ffffff' }).setOrigin(0.5).setDepth(3000);
     this.leaveBtn = button(this, 1190 - SAFE.r, 24, 110, 34, 'LEAVE', () => this.onLeave(), { danger: true, fontSize: 11 }).setDepth(3000);
 
     this.updateCards(this.st);
+    this.view.setActive(this.st.seats[this.st.turn].color);
     this.showToast('LUDO', 1400);
-    this.hint.setText('GET READY…');
+    this.setHint('GET READY…');
     this.setupInput();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cleanup());
     this.engine?.begin();
@@ -212,11 +224,12 @@ export class LudoScene extends Phaser.Scene {
         this.legal = [];
         this.view.setHighlights([]);
         this.positionDice(e.state.turn);
+        this.view.setActive(e.state.seats[e.state.turn].color);
         this.dice.setValue(0);
         this.updateCards(e.state);
         const mine = this.d.mySeats.includes(e.state.turn);
         const name = LUDO_COLOR_NAMES[e.state.seats[e.state.turn].color];
-        this.hint.setText(mine ? (this.hotSeat ? `${name}: TAP THE DICE` : 'YOUR TURN — TAP THE DICE') : `${this.st.seats[e.state.turn].name} is rolling…`);
+        this.setHint(mine ? (this.hotSeat ? `${name}: TAP THE DICE` : 'YOUR TURN — TAP THE DICE') : `${this.st.seats[e.state.turn].name} is rolling…`);
         this.dice.setHint(mine ? 'TAP TO ROLL' : '');
         this.dice.setRing(LUDO_COLORS[e.state.seats[e.state.turn].color], mine);
         return 200;
@@ -231,7 +244,7 @@ export class LudoScene extends Phaser.Scene {
           this.legalSeat = e.seat;
           if (this.d.mySeats.includes(e.seat) && e.legal.length > 1) {
             this.view.setHighlights(e.legal.map((t) => ({ seat: e.seat, token: t })));
-            this.hint.setText('TAP A GLOWING TOKEN TO MOVE');
+            this.setHint('TAP A GLOWING TOKEN TO MOVE');
           } else if (e.legal.length === 1) {
             this.view.setHighlights([{ seat: e.seat, token: e.legal[0] }]);
           }
@@ -279,6 +292,8 @@ export class LudoScene extends Phaser.Scene {
       this.showToast('CAPTURED!', 1100);
       this.cameras.main.shake(160, 0.004);
     } else if (e.to === HOME) {
+      const tk = this.view.tokens[e.seat][e.token];
+      this.view.burst(tk.x, tk.y, LUDO_COLORS[e.state.seats[e.seat].color], 26);
       audio.play('home');
       this.showToast('HOME!', 1000);
     } else if (e.extra) {
@@ -287,6 +302,18 @@ export class LudoScene extends Phaser.Scene {
   }
 
   // --------------------------------------------------------------------- ui
+
+  private setHint(text: string): void {
+    this.hint.setText(text);
+    const g = this.hintBg;
+    g.clear();
+    if (!text) return;
+    const w = this.hint.width + 44;
+    g.fillStyle(0x000000, 0.4).fillRoundedRect(GAME_W / 2 - w / 2, 10, w, 34, 17);
+    g.fillStyle(0x0e1636, 0.85).fillRoundedRect(GAME_W / 2 - w / 2, 8, w, 34, 17);
+    g.lineStyle(1.5, 0xf2c14e, 0.7).strokeRoundedRect(GAME_W / 2 - w / 2, 8, w, 34, 17);
+    this.hint.setY(25);
+  }
 
   private positionDice(seat: number): void {
     const pos = CARD_POS[this.st.seats[seat].color];
@@ -311,7 +338,7 @@ export class LudoScene extends Phaser.Scene {
   private showEnd(winner: number): void {
     if (this.over) return;
     this.over = true;
-    this.hint.setText('');
+    this.setHint('');
     this.view.setHighlights([]);
     const s = this.st;
     const w = s.seats[winner];
@@ -324,15 +351,26 @@ export class LudoScene extends Phaser.Scene {
     }
     const c = this.add.container(0, 0).setDepth(8000);
     const dim = this.add.rectangle(GAME_W / 2, GAME_H / 2, SCREEN_W + 40, GAME_H, 0x000000, 0.7).setInteractive();
-    const pn = panel(this, GAME_W / 2 - 300, 130, 600, 460, { title: 'GAME OVER' });
+    const pn = this.add.graphics();
+    const px = GAME_W / 2 - 300;
+    pn.fillStyle(0x000000, 0.35).fillRoundedRect(px, 134, 600, 470, 26);
+    pn.fillStyle(0x0e1636, 0.97).fillRoundedRect(px, 126, 600, 470, 26);
+    pn.fillStyle(0xffffff, 0.05).fillRoundedRect(px + 4, 130, 592, 120, { tl: 22, tr: 22, bl: 8, br: 8 });
+    pn.lineStyle(4, 0xf2c14e, 1).strokeRoundedRect(px, 126, 600, 470, 26);
+    pn.lineStyle(1.5, 0xf2c14e, 0.4).strokeRoundedRect(px + 10, 136, 580, 450, 20);
+    const cx = GAME_W / 2;
+    const cy = 176;
+    pn.fillStyle(0xf2c14e, 1).fillPoints([{ x: cx - 46, y: cy + 20 }, { x: cx - 54, y: cy - 22 }, { x: cx - 24, y: cy - 4 }, { x: cx, y: cy - 36 }, { x: cx + 24, y: cy - 4 }, { x: cx + 54, y: cy - 22 }, { x: cx + 46, y: cy + 20 }] as never, true);
+    pn.fillStyle(0xfff2b8, 1).fillRect(cx - 46, cy + 12, 92, 10);
+    for (const [jx, jy, jc] of [[cx - 54, cy - 24, 0xe53935], [cx, cy - 38, 0x1e88e5], [cx + 54, cy - 24, 0x43a047]] as [number, number, number][]) pn.fillStyle(jc, 1).fillCircle(jx, jy, 6).lineStyle(1.5, 0xffffff, 0.8).strokeCircle(jx, jy, 6);
     const title = mine && !this.hotSeat ? 'YOU WIN!' : `${w.name.toUpperCase()} WINS!`;
     c.add([
       dim, pn,
-      this.add.text(GAME_W / 2, 220, title, { fontFamily: FONT_DISPLAY, fontSize: '50px', fontStyle: '900', color: hex(LUDO_COLORS[w.color]) }).setOrigin(0.5).setStroke('#000', 8),
+      this.add.text(GAME_W / 2, 244, title, { fontFamily: FONT_DISPLAY, fontSize: '50px', fontStyle: '900', color: hex(LUDO_COLORS[w.color]) }).setOrigin(0.5).setStroke('#000', 8),
     ]);
     const order = s.seats.map((_, i) => i).sort((a, b) => s.tokens[b].filter((p) => p === HOME).length - s.tokens[a].filter((p) => p === HOME).length);
     order.forEach((si, k) => {
-      const y = 280 + k * 52;
+      const y = 298 + k * 52;
       const col = LUDO_COLORS[s.seats[si].color];
       const home = s.tokens[si].filter((p) => p === HOME).length;
       const g = this.add.graphics();
@@ -373,7 +411,9 @@ export class LudoScene extends Phaser.Scene {
   }
 
   update(_t: number, delta: number): void {
-    this.view.update(Math.min(delta / 1000, 0.05));
+    const dt = Math.min(delta / 1000, 0.05);
+    this.view.update(dt);
+    this.cards.forEach((c) => c.tick(dt));
   }
 
   private cleanup(): void {

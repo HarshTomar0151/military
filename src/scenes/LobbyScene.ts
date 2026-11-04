@@ -179,7 +179,7 @@ export class LobbyScene extends Phaser.Scene {
   }
 
   private async join(id: string): Promise<void> {
-    const res = await net.joinRoom(id, this.profile());
+    const res = await net.joinRoom(id, this.profile(), 'shooter');
     this.error = res.ok ? '' : res.error;
     if (!res.ok) await this.refresh();
     this.render();

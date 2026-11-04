@@ -12,6 +12,7 @@ import type {
   ServerToClientEvents,
 } from '../../shared/protocol';
 import type { BatInput, CricketConfig, Delivery } from '../../shared/cricket';
+import type { GameKind } from '../../shared/protocol';
 import { store } from './Storage';
 
 export type NetStatus = 'idle' | 'connecting' | 'online' | 'offline';
@@ -219,11 +220,18 @@ export class MultiplayerManager extends Phaser.Events.EventEmitter {
     ).then((r) => this.adopt(r));
   }
 
-  joinRoom(roomId: string, player: PlayerProfile): Promise<Ack<RoomDetail>> {
+  joinRoom(roomId: string, player: PlayerProfile, expect?: GameKind): Promise<Ack<RoomDetail>> {
     return this.ack<Ack<RoomDetail>>(
       (cb) => this.socket!.emit('room:join', { roomId, player }, cb),
       { ok: false, error: 'Server did not respond' },
-    ).then((r) => this.adopt(r));
+    ).then((r) => {
+      if (r.ok && expect && r.data.game !== expect) {
+        const got = r.data.game;
+        this.leaveRoom();
+        return { ok: false, error: `That room is a ${got} room, not ${expect}. Open it from the ${got.toUpperCase()} menu.` } as Ack<RoomDetail>;
+      }
+      return this.adopt(r);
+    });
   }
 
   private adopt(r: Ack<RoomDetail>): Ack<RoomDetail> {
@@ -231,12 +239,22 @@ export class MultiplayerManager extends Phaser.Events.EventEmitter {
     return r;
   }
 
+  /** An outdated server silently turns unknown games into shooter rooms: detect that and say so. */
+  private async createChecked(req: CreateRoomRequest, game: GameKind): Promise<Ack<RoomDetail>> {
+    const r = await this.createRoom(req);
+    if (r.ok && r.data.game !== game) {
+      this.leaveRoom();
+      return { ok: false, error: 'The multiplayer server is out of date (it does not know this game yet). Redeploy the server with the latest code.' };
+    }
+    return r;
+  }
+
   createCricketRoom(name: string, cricket: CricketConfig, player: PlayerProfile): Promise<Ack<RoomDetail>> {
-    return this.createRoom({ game: 'cricket', cricket, name, mode: 'deathmatch', mapId: 'military', player });
+    return this.createChecked({ game: 'cricket', cricket, name, mode: 'deathmatch', mapId: 'military', player }, 'cricket');
   }
 
   createLudoRoom(name: string, seats: number, player: PlayerProfile): Promise<Ack<RoomDetail>> {
-    return this.createRoom({ game: 'ludo', ludo: { seats }, name, mode: 'deathmatch', mapId: 'military', player });
+    return this.createChecked({ game: 'ludo', ludo: { seats }, name, mode: 'deathmatch', mapId: 'military', player }, 'ludo');
   }
 
   ludoRoll(): void {
